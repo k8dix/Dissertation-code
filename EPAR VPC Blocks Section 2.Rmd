@@ -1,0 +1,326 @@
+---
+title: "EPAR VPC Blocks Section 2"
+output: html_notebook
+---
+
+*Kate Dixon, 2018*
+
+Code takes a csv file of hand-coded (using Datavyu), frame-by-frame left/right looks and transforms it into a final data file that has total look time to each stimuli pair and look time to each stimulus within that pair *BY BLOCKS*.
+
+For cells 7-12 & 19-24
+
+## Set working directory
+```{r}
+setwd("C:/Users/Kate/Desktop/VPC")
+```
+
+## Load packages
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(readxl)
+```
+
+## Load data- *CHANGE NAME OF FILE HERE*
+```{r load-data}
+df <- read.csv("238352 VPC.csv", header=TRUE)
+
+cell_orders <- read_excel("VPC cell orders.xlsx")
+```
+
+## Create new duration variables for individual left and right looks
+```{r}
+df <- df %>% 
+  mutate(LeftLookDuration = LeftLook.offset - LeftLook.onset)
+
+df <- df %>% 
+  mutate(RightLookDuration = RightLook.offset - RightLook.onset)
+```
+
+## Making a new dataframe for the combined look times
+```{r}
+total_look_timeXtrial <- data.frame(matrix(vector(), 0, 2))
+```
+
+## Combining all left/right look durations for each test trial (i.e., TT1, TT2...)
+```{r}
+left_look_timeXtrial <- ddply(df, .(LeftLook.code01), numcolwise(sum))
+right_look_timeXtrial <- ddply(df, .(RightLook.code01), numcolwise(sum))
+
+left_look_timeXtrial <-left_look_timeXtrial$LeftLookDuration
+right_look_timeXtrial <- right_look_timeXtrial$RightLookDuration
+
+left_look_timeXtrial <- as.data.frame(left_look_timeXtrial)
+right_look_timeXtrial <- as.data.frame(right_look_timeXtrial)
+```
+
+## Total left and right look times per trial
+```{r}
+left_look_timeXtrial <- slice(left_look_timeXtrial, 1:12)
+right_look_timeXtrial <- slice(right_look_timeXtrial, 1:12)
+total_look_timeXtrial <- cbind(left_look_timeXtrial,right_look_timeXtrial)
+```
+
+## Adding cell order information to total look time- *CHANGE CELL NUMBER HERE*
+```{r}
+total_look_timeXtrial <- cbind(total_look_timeXtrial, cell_orders$`Cell 9`)
+```
+
+## Calculating total look time per trial
+```{r}
+total_look_timeXtrial <- total_look_timeXtrial %>% 
+  mutate(TotalLT = left_look_timeXtrial + right_look_timeXtrial)
+```
+
+## Separating total look time by trial df into block 1 and block 2 
+```{r}
+# Rename columns
+names(total_look_timeXtrial) <- c("LLXtrial", "RLXtrial", "Stimuli", "TotalLT")
+
+block1 <- slice(total_look_timeXtrial, 1:6)
+block2 <- slice(total_look_timeXtrial, 7:12)
+```
+
+## Creating empty data frames for the finished data
+```{r}
+final_data_block1 <- data.frame(matrix(vector(), 1, 30))
+names(final_data_block1) <- c("TLT_AH/HA", "LT2H_A/H", "LT2A_A/H", "perctH_A/H", "perctA_A/H", "TLT_FA/AF", "LT2F_F/A", "LT2A_F/A", "perctF_F/A", "perctA_F/A", "TLT_HN/NH",	"LT2H_H/N",	"LT2N_H/N",	"perctH_H/N", "perctN_H/N", "TLT_HF/FH", "LT2H_H/F", "LT2F_H/F",	"perctH_H/F",	"perctF_H/F", "TLT_NF/FN", "LT2N_N/F", "LT2F_N/F", "perctN_N/F", "perctF_N/F", "TLT_AN/NA", "LT2A_A/N", "LT2N_A/N", "perctA_A/N", "perctN_A/N")
+
+
+final_data_block2 <- data.frame(matrix(vector(), 1, 30))
+names(final_data_block2) <- c("TLT_AH/HA", "LT2H_A/H", "LT2A_A/H", "perctH_A/H", "perctA_A/H", "TLT_FA/AF", "LT2F_F/A", "LT2A_F/A", "perctF_F/A", "perctA_F/A", "TLT_HN/NH",	"LT2H_H/N",	"LT2N_H/N",	"perctH_H/N", "perctN_H/N", "TLT_HF/FH", "LT2H_H/F", "LT2F_H/F",	"perctH_H/F",	"perctF_H/F", "TLT_NF/FN", "LT2N_N/F", "LT2F_N/F", "perctN_N/F", "perctF_N/F", "TLT_AN/NA", "LT2A_A/N", "LT2N_A/N", "perctA_A/N", "perctN_A/N")
+```
+
+## Finding total look times and proportions of look time to Happy and Angry for A/H trial for Block 2
+```{r}
+## Finding total look time to H and A on A/H trial
+final_data_block2$`LT2H_A/H` <- block2 %>%
+    filter(Stimuli == "A/H") %>% 
+    select(RLXtrial)
+
+final_data_block2$`LT2A_A/H` <- block2 %>%
+    filter(Stimuli == "A/H") %>% 
+    select(LLXtrial)
+
+final_data_block2$`TLT_AH/HA` <- final_data_block2$`LT2H_A/H` + final_data_block2$`LT2A_A/H`
+
+final_data_block2$`perctH_A/H` <- final_data_block2$`LT2H_A/H`/final_data_block2$`TLT_AH/HA`
+
+final_data_block2$`perctA_A/H` <- final_data_block2$`LT2A_A/H`/final_data_block2$`TLT_AH/HA`
+```
+
+## Finding total look times and proportions of look time to Happy and Angry for H/A trials for Block 1 
+```{r}
+## Finding total look time to H and A on H/A trial
+final_data_block1$`LT2H_A/H` <- block1 %>%
+    filter(Stimuli == "H/A") %>% 
+    select(LLXtrial)
+
+final_data_block1$`LT2A_A/H` <- block1 %>%
+    filter(Stimuli == "H/A") %>% 
+    select(RLXtrial)
+
+final_data_block1$`TLT_AH/HA` <- final_data_block1$`LT2H_A/H` + final_data_block1$`LT2A_A/H`
+
+final_data_block1$`perctH_A/H` <- final_data_block1$`LT2H_A/H`/final_data_block1$`TLT_AH/HA`
+
+final_data_block1$`perctA_A/H` <- final_data_block1$`LT2A_A/H`/final_data_block1$`TLT_AH/HA`
+
+```
+
+## Finding total look times and proportions of look time to Fearful and Angry for F/A trial for Block 2
+```{r}
+## Finding total look time to F and A on F/A trial
+final_data_block2$`LT2F_F/A` <- block2 %>%
+    filter(Stimuli == "F/A") %>% 
+    select(LLXtrial)
+
+final_data_block2$`LT2A_F/A` <- block2 %>%
+    filter(Stimuli == "F/A") %>% 
+    select(RLXtrial)
+
+final_data_block2$`TLT_FA/AF` <- final_data_block2$`LT2F_F/A` + final_data_block2$`LT2A_F/A`
+
+final_data_block2$`perctA_F/A` <- final_data_block2$`LT2A_F/A`/final_data_block2$`TLT_FA/AF`
+
+final_data_block2$`perctF_F/A` <- final_data_block2$`LT2F_F/A`/final_data_block2$`TLT_FA/AF`
+
+```
+
+## Finding total look times and proportions of look time to Fearful and Angry for A/F trial for Block 1
+```{r}
+## Finding total look time to A and F on A/F trial
+final_data_block1$`LT2A_F/A` <- block1 %>%
+    filter(Stimuli == "A/F") %>% 
+    select(LLXtrial)
+
+final_data_block1$`LT2F_F/A` <- block1 %>%
+    filter(Stimuli == "A/F") %>% 
+    select(RLXtrial)
+
+final_data_block1$`TLT_FA/AF` <- final_data_block1$`LT2F_F/A` + final_data_block1$`LT2A_F/A`
+
+final_data_block1$`perctA_F/A` <- final_data_block1$`LT2A_F/A`/final_data_block1$`TLT_FA/AF`
+
+final_data_block1$`perctF_F/A` <- final_data_block1$`LT2F_F/A`/final_data_block1$`TLT_FA/AF`
+
+```
+
+## Finding total look times and proportions of look time to Neutral and Happy for N/H trial for Block 2
+```{r}
+## Finding total look time to N and H on N/H trial
+final_data_block2$`LT2N_H/N` <- block2 %>%
+    filter(Stimuli == "N/H") %>% 
+    select(LLXtrial)
+
+final_data_block2$`LT2H_H/N` <- block2 %>%
+    filter(Stimuli == "N/H") %>% 
+    select(RLXtrial)
+
+final_data_block2$`TLT_HN/NH` <- final_data_block2$`LT2N_H/N` + final_data_block2$`LT2H_H/N`
+
+final_data_block2$`perctH_H/N` <- final_data_block2$`LT2H_H/N`/final_data_block2$`TLT_HN/NH`
+
+final_data_block2$`perctN_H/N` <- final_data_block2$`LT2N_H/N`/final_data_block2$`TLT_HN/NH`
+```
+
+## Finding total look times and proportions of look time to Neutral and Happy for H/N trial for Block 1
+```{r}
+## Finding total look time to N and H on H/N trial
+final_data_block1$`LT2N_H/N` <- block1 %>%
+    filter(Stimuli == "H/N") %>% 
+    select(RLXtrial)
+
+final_data_block1$`LT2H_H/N` <- block1 %>%
+    filter(Stimuli == "H/N") %>% 
+    select(LLXtrial)
+
+final_data_block1$`TLT_HN/NH` <- final_data_block1$`LT2N_H/N` + final_data_block1$`LT2H_H/N`
+
+final_data_block1$`perctH_H/N` <- final_data_block1$`LT2H_H/N`/final_data_block1$`TLT_HN/NH`
+
+final_data_block1$`perctN_H/N` <- final_data_block1$`LT2N_H/N`/final_data_block1$`TLT_HN/NH`
+```
+
+## Finding total look times and proportions of look time to Fearful and Happy for H/F trial for Block 2
+```{r}
+## Finding total look time to F and H on H/F trial
+final_data_block2$`LT2H_H/F` <- block2 %>%
+    filter(Stimuli == "H/F") %>% 
+    select(LLXtrial)
+
+final_data_block2$`LT2F_H/F` <- block2 %>%
+    filter(Stimuli == "H/F") %>% 
+    select(RLXtrial)
+
+final_data_block2$`TLT_HF/FH` <- final_data_block2$`LT2H_H/F` + final_data_block2$`LT2F_H/F`
+
+final_data_block2$`perctF_H/F` <- final_data_block2$`LT2F_H/F`/final_data_block2$`TLT_HF/FH`
+
+final_data_block2$`perctH_H/F` <- final_data_block2$`LT2H_H/F`/final_data_block2$`TLT_HF/FH`
+```
+
+## Finding total look times and proportions of look time to Fearful and Happy for F/H trial for Block 1
+```{r}
+## Finding total look time to F and H on H/F trial
+final_data_block1$`LT2H_H/F` <- block1 %>%
+    filter(Stimuli == "F/H") %>% 
+    select(RLXtrial)
+
+final_data_block1$`LT2F_H/F` <- block1 %>%
+    filter(Stimuli == "F/H") %>% 
+    select(LLXtrial)
+
+final_data_block1$`TLT_HF/FH` <- final_data_block1$`LT2H_H/F` + final_data_block1$`LT2F_H/F`
+
+final_data_block1$`perctF_H/F` <- final_data_block1$`LT2F_H/F`/final_data_block1$`TLT_HF/FH`
+
+final_data_block1$`perctH_H/F` <- final_data_block1$`LT2H_H/F`/final_data_block1$`TLT_HF/FH`
+```
+
+## Finding total look times and proportions of look time to Neutral and Fearful for N/F trial for Block 2
+```{r}
+## Finding total look time to F and N on N/F trial
+final_data_block2$`LT2N_N/F` <- block2 %>%
+    filter(Stimuli == "N/F") %>% 
+    select(LLXtrial)
+
+final_data_block2$`LT2F_N/F` <- block2 %>%
+    filter(Stimuli == "N/F") %>% 
+    select(RLXtrial)
+
+final_data_block2$`TLT_NF/FN` <- final_data_block2$`LT2N_N/F` + final_data_block2$`LT2F_N/F`
+
+final_data_block2$`perctF_N/F` <- final_data_block2$`LT2F_N/F` / final_data_block2$`TLT_NF/FN`
+
+final_data_block2$`perctN_N/F` <- final_data_block2$`LT2N_N/F` / final_data_block2$`TLT_NF/FN`
+
+```
+
+## Finding total look times and proportions of look time to Neutral and Fearful for F/N trial for Block 1
+```{r}
+## Finding total look time to F and N on F/N trial
+final_data_block1$`LT2N_N/F` <- block1 %>%
+    filter(Stimuli == "F/N") %>% 
+    select(RLXtrial)
+
+final_data_block1$`LT2F_N/F` <- block1 %>%
+    filter(Stimuli == "F/N") %>% 
+    select(LLXtrial)
+
+final_data_block1$`TLT_NF/FN` <- final_data_block1$`LT2N_N/F` + final_data_block1$`LT2F_N/F`
+
+final_data_block1$`perctF_N/F` <- final_data_block1$`LT2F_N/F` / final_data_block1$`TLT_NF/FN`
+
+final_data_block1$`perctN_N/F` <- final_data_block1$`LT2N_N/F` / final_data_block1$`TLT_NF/FN`
+
+```
+
+
+## Finding total look times and proportions of look time to Neutral and Angry for A/N trial for Block 2
+```{r}
+## Finding total look time to A and N on A/N trial
+final_data_block2$`LT2A_A/N` <- block2 %>%
+    filter(Stimuli == "A/N") %>% 
+    select(LLXtrial)
+
+final_data_block2$`LT2N_A/N` <- block2 %>%
+    filter(Stimuli == "A/N") %>% 
+    select(RLXtrial)
+
+final_data_block2$`TLT_AN/NA` <- final_data_block2$`LT2N_A/N` + final_data_block2$`LT2A_A/N`
+
+final_data_block2$`perctA_A/N` <- final_data_block2$`LT2A_A/N`/final_data_block2$`TLT_AN/NA`
+
+final_data_block2$`perctN_A/N`<- final_data_block2$`LT2N_A/N`/final_data_block2$`TLT_AN/NA`
+
+```
+
+
+## Finding total look times and proportions of look time to Neutral and Angry for N/A trial for Block 1
+```{r}
+## Finding total look time to A and N on N/A trial
+final_data_block1$`LT2A_A/N` <- block1 %>%
+    filter(Stimuli == "N/A") %>% 
+    select(RLXtrial)
+
+final_data_block1$`LT2N_A/N` <- block1 %>%
+    filter(Stimuli == "N/A") %>% 
+    select(LLXtrial)
+
+final_data_block1$`TLT_AN/NA` <- final_data_block1$`LT2N_A/N` + final_data_block1$`LT2A_A/N`
+
+final_data_block1$`perctA_A/N` <- final_data_block1$`LT2A_A/N`/final_data_block1$`TLT_AN/NA`
+
+final_data_block1$`perctN_A/N`<- final_data_block1$`LT2N_A/N`/final_data_block1$`TLT_AN/NA`
+
+```
+
+## Writing final data into a csv file- *CHANGE NAME OF OUTPUT FILES HERE*
+```{r}
+# Write CSV in R
+write.csv(final_data_block1, file = "238352 VPC block1.csv", row.names = TRUE)
+write.csv(final_data_block2, file = "238352 VPC block2.csv", row.names = TRUE)
+```
+

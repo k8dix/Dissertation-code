@@ -1,0 +1,108 @@
+---
+title: "Right_Order"
+output: html_notebook
+---
+
+*Kate Dixon 2018*
+
+This is a code intended to take the output of minimum and maximum Affectiva scores for four trials and put them in order for pasting into a master excel file. Output is a file in test trial order (TT1-TT4) and a file in alphabetical order (Angry, Fearful, Happy, Neutral) which matches the order of data columns in the master file.
+
+Could have fixed this in the original Matlab code that cleans the original Affectiva output file...but I like R better.
+
+## Set working directory
+```{r}
+setwd("C:/Users/Kate/Documents/MATLAB")
+```
+
+## Load packages
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(readxl)
+```
+
+## Load data- *CHANGE NAME OF FILE HERE*
+```{r load-data}
+minmax4trials <- read_excel("Practice_238355_processedML.xlsx", sheet = "Sheet9")
+
+ARcell_orders <- read_excel("AR cell orders.xlsx")
+```
+
+## Getting rid of the range and unecessary columns
+```{r}
+justminmax <- minmax4trials %>%
+      slice(-3) %>%
+      slice(-5) %>%
+      slice (-7) %>%
+      slice (-9) %>%
+      select(anger:smirk)
+      
+```
+
+## Min and Max for TT1 in one row
+```{r}
+minTT1 <- slice(justminmax, 1)
+maxTT1 <- slice(justminmax, 2)
+
+TT1 <- cbind(minTT1,maxTT1)
+```
+
+## Min and Max for TT2 in one row
+```{r}
+minTT2 <- slice(justminmax, 3)
+maxTT2 <- slice(justminmax, 4)
+
+TT2 <- cbind(minTT2,maxTT2)
+```
+
+## Min and Max for TT3 in one row
+```{r}
+minTT3 <- slice(justminmax, 5)
+maxTT3 <- slice(justminmax, 6)
+
+TT3 <- cbind(minTT3,maxTT3)
+```
+
+## Min and Max for TT4 in one row
+```{r}
+minTT4 <- slice(justminmax, 7)
+maxTT4 <- slice(justminmax, 8)
+
+TT4 <- cbind(minTT4,maxTT4)
+```
+
+## Writing the min/max Affectiva values for TT1-4 to a csv file *CHANGE NAME OF FILE HERE*
+```{r}
+the_right_order1 <- cbind(TT1, TT2, TT3, TT4)
+write.csv(the_right_order, file = "238355 TT1-TT4.csv")
+```
+
+## Adding stimuli order (cell number) to the test trials- *CHANGE CELL NUMBER*
+```{r}
+the_right_order2 <- rbind(TT1, TT2, TT3, TT4)
+the_right_order3 <- cbind(the_right_order2, ARcell_orders$`Cell 6`)
+```
+
+## Sorting trials into alphabetical order (A, F, H, N)- *CHANGE CELL NUMBER*
+```{r}
+the_right_order_alpha <- arrange(the_right_order3,ARcell_orders$`Cell 6`)
+
+the_right_order_alpha2 <- the_right_order_alpha[ -c(61) ]
+```
+
+## Getting A,F,H,N trials on one row
+```{r}
+anger <- slice(the_right_order_alpha2, 1)
+fear <- slice(the_right_order_alpha2, 2)
+happy <- slice(the_right_order_alpha2, 3)
+neutral <- slice(the_right_order_alpha2, 4)
+
+the_right_order_alpha3 <- cbind(anger, fear, happy, neutral)
+```
+
+## Writing Affectiva min/max values in set order to csv file *CHANGE NAME OF FILE HERE*
+```{r}
+write.csv(the_right_order_alpha3, file = "238355 AFHN.csv")
+```
+
