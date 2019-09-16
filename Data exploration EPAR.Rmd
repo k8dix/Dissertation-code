@@ -1,0 +1,745 @@
+---
+title: "Data exploration EPAR"
+output: html_notebook
+---
+
+*Kate Dixon - 2019*
+
+1. General graphs/data viz (line 42)
+2. Percentage of look time per expression pair based on crawling status (line 73)
+3. One-sample T-test (mean proportion of look time vs. chance (.50)) for crawlers and non-crawlers (line 106)
+4. Percentage of look time per expression pair based on abbreviated EE questionnaire (line 228)
+5. One-sample T-test (mean proportion of look time vs. chance (.50)) for high vs. low scores on      abbreviated EE questionnaire (line 273)
+6. Percentage of look time per expression pair based on full EE questionnaire (line 371)
+7. One-sample T-test (mean proportion of look time vs. chance (.50)) for high vs. low scores on full EE questionnaire (line 420)
+8. Two-Way ANOVA 2x2- (EE abreviated scores: high, low), (Crawling stats: non-crawler, crawler), on percentage look time to each pair (line 520)
+9. Is age significantly different between high/low or non-crawler/crawler groups?
+10. MANOVA - 2 MANOVAs, one per group (Crawlers and Non-crawlers), with Abbreviated High/Low EE scores as a between-subjects factor and the proportion scores for each pair as the DVs (6) (line 600)
+11. Wilcoxon (independent samples)- Crawlers and non-crawlers assesed separately, high vs. low on each preference score for pair
+12. Wilcoxon one sample
+
+
+-MANOVA
+-age? ANCOVA?
+-using block 1 instead of total
+-crawler & high EE, crawler & low EE also NC & high and NC and low- ANOVA
+-outliers?
+-siblings (Y/N) different btw groups?
+
+
+
+Set WD
+```{r}
+setwd("~/MATLAB")
+```
+
+Libraries
+```{r}
+library(readxl)
+library(formattable)
+library('tidyverse')
+library(car)
+```
+
+Getting data
+```{r}
+EPAR_full <- read_excel("MASTER EPAR 8.1.19.xlsx")
+```
+
+___________________________________________________________________________________________________
+## 1. General graphs/data viz
+
+Scatterplot of individual participants' proportions of look time to angry face in AH pair
+Color based on whether or not individual is crawling
+Dashed line is at 0.50 
+```{r}
+ggplot(EPAR_full, aes(x = Part_ID, y = perctA_AH, color = CrawlingYN)) +
+  geom_point() +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5)
+  
+```
+
+Scatterplot of individual participants' proportions of look time to angry face in AH pair and
+score on certain questions of the EE questionnaire
+Color based on whether or not individual is crawling
+Dashed line is at 0.50 
+```{r}
+ggplot(EPAR_full, aes(x = SumQ1_2_5_11_12_13, y = perctA_AH, color = CrawlingYN)) +
+  geom_point() +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5)
+  
+```
+
+Boxplot - Looking time to happy face in AH pair by crawling status
+```{r}
+ggplot(EPAR_full, aes(x = factor(CrawlingYN), y = perctH_AH, fill = factor(CrawlingYN))) +
+  geom_boxplot()
+```
+
+_____________________________________________________________________________________________________
+
+## 2. Percentage of look time per expression pair based on crawling status
+
+Mean percentage of look time per facial expression pair for each crawling group
+```{r}
+EPAR_full[!is.na(EPAR_full),]
+avg_percts <- EPAR_full %>%
+  select(CrawlingYN, perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  group_by(CrawlingYN) %>%
+  summarize(mean_perctH_AH = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF = mean (perctF_NF, na.rm = TRUE))
+avg_percts
+```
+
+
+Reshaping the above table for graphing purposes
+```{r}
+means_EPAR <- avg_percts %>% 
+  gather(Pair, Percentage, mean_perctH_AH:mean_perctF_NF)
+means_EPAR
+```
+
+Bar graph of percentage of total look time to certain face in each expression pair based on crawling status
+```{r}
+ggplot(means_EPAR, aes(x = factor(Pair), y = Percentage, fill = factor(CrawlingYN))) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5)
+```
+
+_____________________________________________________________________________________________________
+## 3. One-sample T-test (mean proportion of look time vs. chance (.50)) for crawlers and non-crawlers 
+
+Shapiro-Wilk test for normality (can assume normality if not significant) & Q-Q plots
+```{r}
+shapiro.test(EPAR_full$perctA_AH)
+shapiro.test(EPAR_full$perctA_AN)
+shapiro.test(EPAR_full$perctF_FA)
+shapiro.test(EPAR_full$perctF_HF)
+shapiro.test(EPAR_full$perctN_HN)
+shapiro.test(EPAR_full$perctF_NF)
+
+ggplot(EPAR_full, aes(sample = perctA_AH)) +
+  stat_qq() +
+  stat_qq_line()
+
+ggplot(EPAR_full, aes(sample = perctA_AN)) +
+  stat_qq() +
+  stat_qq_line()
+```
+
+Splitting main dataframe into crawlers and non-crawlers
+```{r}
+crawlers <- EPAR_full %>% 
+  filter(CrawlingYN == 1)
+
+non_crawlers <- EPAR_full %>%
+  filter(CrawlingYN == 0)
+```
+
+
+One-sample t-tests for crawlers (one-sample Wilcoxon signed rank test for when data is not normally distributed)
+```{r}
+resultA_AH_C <- t.test(crawlers$perctA_AH, mu = 0.50)
+resultA_AN_C <- t.test(crawlers$perctA_AN, mu = 0.50)
+resultF_FA_C <- t.test(crawlers$perctF_FA, mu = 0.50)
+resultF_HF_C <- t.test(crawlers$perctF_HF, mu = 0.50)
+resultN_HN_C <- t.test(crawlers$perctN_HN, mu = 0.50)
+resultF_NF_C <- t.test(crawlers$perctF_NF, mu = 0.50)
+
+resultA_AH_C
+resultA_AN_C
+resultF_FA_C
+resultF_HF_C
+resultN_HN_C
+resultF_NF_C
+
+resultA_AH_Cwil <- wilcox.test(crawlers$perctA_AH, mu = 0.50)
+```
+
+Bar graph for crawlers (have to change where asterisks are based on above significance)
+```{r}
+avg_percts_C <- crawlers %>%
+  select(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  summarize(mean_perctH_AHC = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_ANC = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FAC = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HFC = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HNC = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NFC = mean (perctF_NF, na.rm = TRUE))
+
+means_crawlers <- avg_percts_C %>% 
+  gather(Pair, Percentage, mean_perctH_AHC:mean_perctF_NFC)
+
+asterisks <- data.frame(Pair = c("mean_perctF_FAC", "mean_perctN_HNC", "mean_perctF_NFC"),
+                        Percentage = c(.63, .48, .60))
+
+C_bar <- ggplot(means_crawlers, aes(x = factor(Pair), y = Percentage)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks, label = "*", size = 10)
+C_bar
+```
+
+
+One-sample t-tests for non-crawlers
+```{r}
+resultA_AH_NC <- t.test(non_crawlers$perctA_AH, mu = 0.50)
+resultA_AN_NC <- t.test(non_crawlers$perctA_AN, mu = 0.50)
+resultF_FA_NC <- t.test(non_crawlers$perctF_FA, mu = 0.50)
+resultF_HF_NC <- t.test(non_crawlers$perctF_HF, mu = 0.50)
+resultN_HN_NC <- t.test(non_crawlers$perctN_HN, mu = 0.50)
+resultF_NF_NC <- t.test(non_crawlers$perctF_NF, mu = 0.50)
+
+resultA_AH_NC
+resultA_AN_NC
+resultF_FA_NC
+resultF_HF_NC
+resultN_HN_NC
+resultF_NF_NC
+
+resultA_AH_NCwil <- wilcox.test(non_crawlers$perctA_AH, mu = 0.50)
+
+```
+
+Bargraph for non-crawlers (have to change coordinates for asterisks based on significance)
+```{r}
+avg_percts_NC <- non_crawlers %>%
+  select(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  summarize(mean_perctH_AHNC = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_ANNC = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FANC = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HFNC = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HNNC = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NFNC = mean (perctF_NF, na.rm = TRUE))
+
+means_non_crawlers <- avg_percts_NC %>% 
+  gather(Pair, Percentage, mean_perctH_AHNC:mean_perctF_NFNC)
+
+asterisks2 <- data.frame(Pair = c("mean_perctF_FANC", "mean_perctF_HFNC"),
+                        Percentage = c(.63, .63))
+
+NCbar <- ggplot(means_non_crawlers, aes(x = factor(Pair), y = Percentage)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks2, label = "*", size = 10)
+NCbar
+```
+
+______________________________________________________________________________________________
+
+## 4. Percentage of look time per expression pair based on abbreviated EE questionnaire
+
+New variable based on score from certain questions on the EE questionnaire (#1,2,5,11,12,13)- new variable is a median split of high/low scores
+```{r}
+medianEEsum <- median(EPAR_full$SumQ1_2_5_11_12_13)
+EPAR_full$HighLowEEscore[EPAR_full$SumQ1_2_5_11_12_13 >= medianEEsum] <- 'high'
+EPAR_full$HighLowEEscore[EPAR_full$SumQ1_2_5_11_12_13 < medianEEsum] <- 'low'
+
+```
+
+Mean percentage of look time per facial expression pair for high and low EE questionnaire group (the abreviated EE questionnaire, see above)
+```{r}
+highlow_percts <- EPAR_full %>%
+  select(HighLowEEscore, perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  group_by(HighLowEEscore) %>%
+  summarize(mean_perctH_AH = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF = mean (perctF_NF, na.rm = TRUE))
+highlow_percts
+```
+
+Reshaping above dataframe
+```{r}
+means_EPARHL <- highlow_percts %>% 
+  gather(Pair, Percentage, mean_perctH_AH:mean_perctF_NF)
+means_EPARHL
+```
+
+Bar graph of percentage of total look time to certain face in each expression pair based on scores for certain questions on the EE questionnaire (high/low)
+```{r}
+ggplot(means_EPARHL, aes(x = factor(Pair), y = Percentage, fill = factor(HighLowEEscore))) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5)
+```
+
+Boxplot - Looking time to happy face in AH pair by abbreviated EE score
+```{r}
+ggplot(EPAR_full, aes(x = factor(HighLowEEscore), y = perctH_AH, fill = factor(HighLowEEscore))) +
+  geom_boxplot()
+```
+
+__________________________________________________________________________________________________
+## 5. One-sample T-test (mean proportion of look time vs. chance (.50)) for high vs. low scores on abbreviated EE questionnaire
+
+Splitting main dataframe into high/low scores
+```{r}
+highEE <- EPAR_full %>% 
+  filter(HighLowEEscore == "high")
+
+lowEE <- EPAR_full %>%
+  filter(HighLowEEscore == "low")
+```
+
+One-sample t-tests for highEE
+```{r}
+resultA_AH_high <- t.test(highEE$perctA_AH, mu = 0.50)
+resultA_AN_high <- t.test(highEE$perctA_AN, mu = 0.50)
+resultF_FA_high <- t.test(highEE$perctF_FA, mu = 0.50)
+resultF_HF_high <- t.test(highEE$perctF_HF, mu = 0.50)
+resultN_HN_high <- t.test(highEE$perctN_HN, mu = 0.50)
+resultF_NF_high <- t.test(highEE$perctF_NF, mu = 0.50)
+
+resultA_AH_high
+resultA_AN_high
+resultF_FA_high
+resultF_HF_high
+resultN_HN_high
+resultF_NF_high
+
+```
+
+Bargraph for high EE (abbreviated) (have to change coordinates for asterisks based on significance)
+```{r}
+avg_percts_highEE <- highEE %>%
+  select(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  summarize(mean_perctH_AH_highEE = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN_highEE = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA_highEE = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF_highEE = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN_highEE = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF_highEE = mean (perctF_NF, na.rm = TRUE))
+
+means_highEE <- avg_percts_highEE %>% 
+  gather(Pair, Percentage, mean_perctH_AH_highEE:mean_perctF_NF_highEE)
+
+asterisks <- data.frame(Pair = c("mean_perctF_FA_highEE","mean_perctF_NF_highEE"),
+                        Percentage = c(.65, .60))
+
+highEE_bar <- ggplot(means_highEE, aes(x = factor(Pair), y = Percentage)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks, label = "*", size = 10)
+highEE_bar
+```
+
+One-sample t-tests for lowEE
+```{r}
+resultA_AH_low <- t.test(lowEE$perctA_AH, mu = 0.50)
+resultA_AN_low <- t.test(lowEE$perctA_AN, mu = 0.50)
+resultF_FA_low <- t.test(lowEE$perctF_FA, mu = 0.50)
+resultF_HF_low <- t.test(lowEE$perctF_HF, mu = 0.50)
+resultN_HN_low <- t.test(lowEE$perctN_HN, mu = 0.50)
+resultF_NF_low <- t.test(lowEE$perctF_NF, mu = 0.50)
+
+resultA_AH_low
+resultA_AN_low
+resultF_FA_low
+resultF_HF_low
+resultN_HN_low 
+resultF_NF_low
+
+
+```
+
+Bargraph for low EE (abbreviated) (have to change coordinates for asterisks based on significance)
+```{r}
+avg_percts_lowEE <- lowEE %>%
+  select(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  summarize(mean_perctH_AH_lowEE = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN_lowEE = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA_lowEE = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF_lowEE = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN_lowEE = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF_lowEE = mean(perctF_NF, na.rm = TRUE))
+
+means_lowEE <- avg_percts_lowEE %>% 
+  gather(Pair, Percentage, mean_perctH_AH_lowEE:mean_perctF_NF_lowEE)
+
+asterisks <- data.frame(Pair = c("mean_perctF_HF_lowEE", "mean_perctN_HN_lowEE"),
+                        Percentage = c(.62, .46))
+
+lowEE_bar <- ggplot(means_lowEE, aes(x = factor(Pair), y = Percentage)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks, label = "*", size = 10)
+lowEE_bar
+```
+
+_____________________________________________________________________________________________
+## 6. Percentage of look time per expression pair based on full EE questionnaire
+
+New variable based on total sum of EE questionnaire
+```{r}
+EPAR_full$Total_EEscore <- rowSums(EPAR_full[, 605:617])
+```
+
+New variable based on total score from EE questionnaire- new variable is a median split of high/low scores
+```{r}
+medianEEtotal <- median(EPAR_full$Total_EEscore)
+EPAR_full$HighLowEEscore2[EPAR_full$Total_EEscore >= medianEEtotal] <- 'high'
+EPAR_full$HighLowEEscore2[EPAR_full$Total_EEscore < medianEEtotal] <- 'low'
+```
+
+Mean percentage of look time per facial expression pair for high and low EE questionnaire group (the full EE questionnaire, see above)
+```{r}
+highlow_perctsTotal <- EPAR_full %>%
+  select(HighLowEEscore2, perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  group_by(HighLowEEscore2) %>%
+  summarize(mean_perctH_AH_total = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN_total = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA_total = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF_total = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN_total = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF_total = mean (perctF_NF, na.rm = TRUE))
+highlow_perctsTotal
+```
+
+Reshaping above dataframe
+```{r}
+means_EPARHL_total <- highlow_perctsTotal %>% 
+  gather(Pair, Percentage, mean_perctH_AH_total:mean_perctF_NF_total)
+means_EPARHL_total
+```
+
+Bar graph of percentage of total look time to certain face in each expression pair based on total scores for the EE questionnaire (high/low)
+```{r}
+ggplot(means_EPARHL_total, aes(x = factor(Pair), y = Percentage, fill = factor(HighLowEEscore2))) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5)
+```
+
+Boxplot - Looking time to happy face in AH pair by total EE score
+```{r}
+ggplot(EPAR_full, aes(x = factor(HighLowEEscore2), y = perctH_AH, fill = factor(HighLowEEscore2))) +
+  geom_boxplot()
+```
+
+___________________________________________________________________________________________________
+## 7. One-sample T-test (mean proportion of look time vs. chance (.50)) for high vs. low scores on full EE questionnaire
+
+Splitting main dataframe into high/low scores
+```{r}
+highEE2 <- EPAR_full %>% 
+  filter(HighLowEEscore2 == "high")
+
+lowEE2 <- EPAR_full %>%
+  filter(HighLowEEscore2 == "low")
+```
+
+
+One-sample t-tests for highEE2
+```{r}
+resultA_AH_high2 <- t.test(highEE2$perctA_AH, mu = 0.50)
+resultA_AN_high2 <- t.test(highEE2$perctA_AN, mu = 0.50)
+resultF_FA_high2 <- t.test(highEE2$perctF_FA, mu = 0.50)
+resultF_HF_high2 <- t.test(highEE2$perctF_HF, mu = 0.50)
+resultN_HN_high2 <- t.test(highEE2$perctN_HN, mu = 0.50)
+resultF_NF_high2 <- t.test(highEE2$perctF_NF, mu = 0.50)
+
+resultA_AH_high2
+resultA_AN_high2
+resultF_FA_high2
+resultF_HF_high2
+resultN_HN_high2
+resultF_NF_high2
+
+```
+
+Bargraph for high EE (full) (have to change coordinates for asterisks based on significance)
+```{r}
+avg_percts_highEE2 <- highEE2 %>%
+  select(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  summarize(mean_perctH_AH_highEE2 = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN_highEE2 = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA_highEE2 = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF_highEE2 = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN_highEE2 = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF_highEE2 = mean (perctF_NF, na.rm = TRUE))
+
+means_highEE2 <- avg_percts_highEE2 %>% 
+  gather(Pair, Percentage, mean_perctH_AH_highEE2:mean_perctF_NF_highEE2)
+
+asterisks <- data.frame(Pair = c("mean_perctF_FA_highEE2"),
+                        Percentage = c(.63))
+
+highEE2_bar <- ggplot(means_highEE2, aes(x = factor(Pair), y = Percentage)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks, label = "*", size = 10)
+highEE2_bar
+```
+
+One-sample t-tests for lowEE2
+```{r}
+resultA_AH_low2 <- t.test(lowEE2$perctA_AH, mu = 0.50)
+resultA_AN_low2 <- t.test(lowEE2$perctA_AN, mu = 0.50)
+resultF_FA_low2 <- t.test(lowEE2$perctF_FA, mu = 0.50)
+resultF_HF_low2 <- t.test(lowEE2$perctF_HF, mu = 0.50)
+resultN_HN_low2 <- t.test(lowEE2$perctN_HN, mu = 0.50)
+resultF_NF_low2 <- t.test(lowEE2$perctF_NF, mu = 0.50)
+
+resultA_AH_low2
+resultA_AN_low2
+resultF_FA_low2
+resultF_HF_low2
+resultN_HN_low2
+resultF_NF_low2
+
+
+```
+
+
+Bargraph for low EE (full) (have to change coordinates for asterisks based on significance)
+```{r}
+avg_percts_lowEE2 <- lowEE2 %>%
+  select(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  summarize(mean_perctH_AH_lowEE2 = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN_lowEE2 = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA_lowEE2 = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF_lowEE2 = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN_lowEE2 = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF_lowEE2 = mean(perctF_NF, na.rm = TRUE))
+
+means_lowEE2 <- avg_percts_lowEE2 %>% 
+  gather(Pair, Percentage, mean_perctH_AH_lowEE2:mean_perctF_NF_lowEE2)
+
+asterisks <- data.frame(Pair = c("mean_perctN_HN_lowEE2"),
+                        Percentage = c(.46))
+
+lowEE_bar <- ggplot(means_lowEE, aes(x = factor(Pair), y = Percentage)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks, label = "*", size = 10)
+lowEE_bar
+```
+
+______________________________________________________________________________________________________
+## 8. Two-Way ANOVA 2x2- (EE abreviated scores: high, low), (Crawling stats: non-crawler, crawler), on percentage look time to each pair
+
+Grab only needed variables
+```{r}
+EPAR4ANOVA <- EPAR_full %>%
+  select(CrawlingYN, HighLowEEscore, perctH_AH)
+```
+
+
+Check structure to see how R is reading the variables (need the independent variables to be factors)
+```{r}
+str(EPAR4ANOVA)
+```
+
+Convert variables to factors and recode the levels
+```{r}
+EPAR4ANOVA$CrawlingYN <- factor(EPAR4ANOVA$CrawlingYN,
+                                levels = c(0, 1),
+                                labels = c("non_crawler", "crawler"))
+
+EPAR4ANOVA$HighLowEEscore <- factor(EPAR4ANOVA$HighLowEEscore,
+                                levels = c("high", "low"),
+                                labels = c("high", "low"))
+
+
+str(EPAR4ANOVA)
+```
+
+Frequency table (to see how many participants are in each cell)- balanced or unbalanced?
+```{r}
+table(EPAR4ANOVA$CrawlingYN, EPAR4ANOVA$HighLowEEscore)
+```
+
+Visualize data
+```{r}
+ggplot(EPAR4ANOVA, aes(x = CrawlingYN, y = perctH_AH, fill = HighLowEEscore)) +
+  geom_boxplot()
+```
+
+Compute two-way ANOVA- Does look time to happy in AH pair depend on crawling status and abbreviated EE score? 
+```{r}
+library(car)
+result_aov <- aov(perctH_AH ~ CrawlingYN * HighLowEEscore, data = EPAR4ANOVA)
+Anova(result_aov, type = "III")
+```
+
+Compute mean and SD by groups
+```{r}
+group_by(EPAR4ANOVA, CrawlingYN, HighLowEEscore) %>%
+  summarise(
+    count = n(),
+    mean = mean(perctH_AH, na.rm = TRUE),
+    sd = sd(perctH_AH, na.rm = TRUE)
+  )
+```
+
+Levene's Test for homogeneity of variance (isn't significant = no evidence to suggest that the variance across groups is statistically significantly different, can assume homogeneity)
+```{r}
+leveneTest(perctH_AH ~ CrawlingYN*HighLowEEscore, data = EPAR4ANOVA)
+```
+
+____________________________________________________________________________________________________
+## 9. Is age different between groups? (do I need to do an MANOVA or a MANCOVA?)
+```{r}
+Age_lowhigh <- EPAR_full %>%
+  select(HighLowEEscore, Age_in_mos)
+
+res <- t.test(Age_in_mos ~ HighLowEEscore, data = Age_lowhigh, var.equal = TRUE)
+res
+
+Age_CNC <- EPAR_full %>%
+  select(CrawlingYN, Age_in_mos)
+
+res2 <- t.test(Age_in_mos ~ CrawlingYN, data = Age_CNC, var.equal = TRUE)
+res2
+```
+___________________________________________________________________________________________________
+## 10.MANOVAs - 2 MANOVAs, one per group (Crawlers and Non-crawlers), with Abbreviated High/Low EE scores as a between-subjects factor and the proportion scores for each pair as the DVs (6)
+```{r}
+
+EPAR4MANOVA <- EPAR_full %>%
+  select(CrawlingYN, HighLowEEscore, perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF )
+str(EPAR4MANOVA)
+
+
+EPAR4MANOVA$HighLowEEscore <- factor(EPAR4ANOVA$HighLowEEscore,
+                                levels = c("high", "low"),
+                                labels = c("high", "low"))
+
+
+str(EPAR4MANOVA)
+
+crawlersMANOVA <- EPAR4MANOVA %>% 
+  filter(CrawlingYN == 1)
+
+non_crawlersMANOVA <- EPAR4MANOVA %>%
+  filter(CrawlingYN == 0)
+
+results_CMANOVA <- manova(cbind(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) ~ HighLowEEscore, data = crawlersMANOVA)
+
+results_NCMANOVA <- manova(cbind(perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) ~ HighLowEEscore, data = non_crawlersMANOVA)
+
+summary(results_CMANOVA)
+summary(results_NCMANOVA)
+
+```
+
+
+
+```{r}
+crawlbyhighlow <- EPAR4MANOVA %>%
+  select(HighLowEEscore, CrawlingYN, perctH_AH, perctA_AN, perctF_FA, perctF_HF, perctN_HN, perctF_NF) %>%
+  group_by(CrawlingYN, HighLowEEscore) %>%
+  summarize(mean_perctH_AH3 = mean(perctH_AH, na.rm = TRUE),
+            mean_perctA_AN3 = mean(perctA_AN, na.rm = TRUE),
+            mean_perctF_FA3 = mean(perctF_FA, na.rm = TRUE),
+            mean_perctF_HF3 = mean(perctF_HF, na.rm = TRUE),
+            mean_perctN_HN3 = mean(perctN_HN, na.rm = TRUE),
+            mean_perctF_NF3 = mean (perctF_NF, na.rm = TRUE))
+
+crawlbyhighlow
+
+
+```
+
+```{r}
+means_crawlbyhighlow <- crawlbyhighlow %>% 
+  gather(Pair, Percentage, mean_perctH_AH3:mean_perctF_NF3)
+means_crawlbyhighlow
+```
+
+
+```{r}
+ggplot(means_crawlbyhighlow, aes(x = factor(Pair), y = Percentage, fill = factor(HighLowEEscore))) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  facet_grid(.~CrawlingYN)
+```
+__________________________________________________________________________________________________
+## 11. Wilcoxon tests (12 tests- 6 for crawlers comparing high vs. low pair scores and 6 for non-crawlers)
+
+Summary stats for non-crawlers on perctF_FA (chose this one from above graph)
+```{r}
+group_by(non_crawlersMANOVA, HighLowEEscore) %>%
+  summarise(
+    count = n(),
+    median = median(perctF_FA, na.rm = TRUE),
+    IQR = IQR(perctF_FA, na.rm = TRUE)
+  )
+```
+
+Boxplots (chosen from above graph)
+```{r}
+ggplot(non_crawlersMANOVA, aes(x = HighLowEEscore, y = perctF_FA, fill = HighLowEEscore)) +
+  geom_boxplot()
+```
+
+Wilcoxon (two-sample)
+```{r}
+wilres <- wilcox.test(perctF_FA ~ HighLowEEscore, data = non_crawlersMANOVA, exact = FALSE)
+wilres
+```
+
+Summary stats for crawlers on perctA_AN, perctH_AH, and perctN_HN (chose these from above graph)
+```{r}
+group_by(crawlersMANOVA, HighLowEEscore) %>%
+  summarise(
+    count = n(),
+    median = median(perctA_AN, na.rm = TRUE),
+    IQR = IQR(perctA_AN, na.rm = TRUE)
+  )
+```
+
+Wilcoxon one-sample- non-crawlers, comparing low EE and high EE scorers on perctF_FA to chance 
+```{r}
+
+non_crawlersMANOVAlow <- non_crawlersMANOVA %>%
+  filter(HighLowEEscore == "low")
+non_crawlersMANOVAhigh <- non_crawlersMANOVA %>%
+  filter(HighLowEEscore == "high")
+
+reswilone <- wilcox.test(non_crawlersMANOVAlow$perctF_FA, mu = .50)
+reswilone2 <- wilcox.test(non_crawlersMANOVAhigh$perctF_FA, mu = .50)
+
+reswilone
+reswilone2
+```
+
+Wilcoxon one-sample- crawlers, comparing low EE and high EE scorers on perctA_AN, perctH_AH, perctN_HN to chance
+```{r}
+crawlersMANOVAlow <- crawlersMANOVA %>%
+  filter(HighLowEEscore == "low")
+crawlersMANOVAhigh <- crawlersMANOVA %>%
+  filter(HighLowEEscore == "high")
+
+reswilone3 <- wilcox.test(crawlersMANOVAlow$perctA_AN, mu = .50)
+reswilone4 <- wilcox.test(crawlersMANOVAhigh$perctA_AN, mu = .50)
+
+reswilone5 <- wilcox.test(crawlersMANOVAlow$perctH_AH, mu = .50)
+reswilone6 <- wilcox.test(crawlersMANOVAhigh$perctH_AH, mu = .50)
+
+reswilone7 <- wilcox.test(crawlersMANOVAlow$perctN_HN, mu = .50)
+reswilone8 <- wilcox.test(crawlersMANOVAhigh$perctN_HN, mu = .50)
+
+reswilone3
+reswilone4
+reswilone5
+reswilone6
+reswilone7
+reswilone8
+```
+

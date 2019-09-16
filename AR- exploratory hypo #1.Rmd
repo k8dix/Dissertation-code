@@ -1,0 +1,486 @@
+---
+title: "AR- Proposed analysis to exploratory hypothesis #1 (present/not present)"
+output: html_notebook
+---
+
+*Kate Dixon - 2019*
+
+## Does the number of infants that produce negative AUs in response to an angry face relate to their crawling status?
+
+Experienced crawlers amd pre-crawlers will each be divided into two groups: infants that did not produce any negative AUs to the angry expression and infants that produced at least one negative AU while viewing the angry face.
+
+Chi-square tests of independence will be used to examine the proportion of experienced crawlers and pre-crawlers that produce negative AUs to each expression. It is expected that a higher percentage of experienced crawlers will respond negatively to the angry display.I expect to see no differences in proportions of experienced and pre- crawlers that produce negative AUs in response to fearful, happy, and neutral expressions.
+
+Chi-square tests of independence will also be used to examine the proportion of experienced and pre-crawlers that produce positive AUs to each expression. I predict that there will not be differences in proportion of crawling and pre-crawling infants who produce positive AUs for any expression.
+
+1. Data wrangling
+2. Contingency tables for positive AUs - Chi-squares for positive AUs
+3. Contingency tables for negative AUs - Chi-squares for negative AUs
+
+Does the number of negative AUs produced during a trial differ between crawlers and non-crawlers on average?
+4a. Average number of negative AUs produced by crawling group (Angry) - two sample t-test
+4b. Average number of negative AUs produced by crawling group (Fear) - two sample t-test
+4c. Average number of negative AUs produced by crawling group (Neutral) - two sample t-test
+4d. Average number of negative AUs produced by crawling group (Happy) - two sample t-test
+
+Does the type of negative AUs produced during a trial differ between crawlers and non-crawlers on average?
+5a.Angry
+
+_____________________________________________________________________________________________________
+## 1. Data wrangling (reading data into R, reshaping, scoring dichotomous variables, etc.) 
+
+Set WD
+```{r}
+setwd("~/MATLAB")
+```
+
+Libraries
+```{r}
+library(readxl)
+library(formattable)
+library(tidyverse)
+library(car)
+library(psych)
+```
+
+Getting data
+```{r}
+EPAR_full <- read_excel("EP SPSS (N = 56) 8.22.xlsx")
+```
+
+Creating dataframes of negative AUs of interest for angry, fearful. neutral, and happy trials
+```{r}
+angryTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxA,	brow_raise_maxA,	brow_furrow_maxA,	nose_wrinkle_maxA,	upper_lip_raise_maxA,	lip_corner_depressor_maxA,	chin_raise_maxA,	lip_stretch_maxA,	lip_press_maxA)
+
+fearTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxF,	brow_raise_maxF,	brow_furrow_maxF,	nose_wrinkle_maxF,	upper_lip_raise_maxF,	lip_corner_depressor_maxF,	chin_raise_maxF,	lip_stretch_maxF,	lip_press_maxF)
+
+neutralTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxN,	brow_raise_maxN,	brow_furrow_maxN,	nose_wrinkle_maxN,	upper_lip_raise_maxN,	lip_corner_depressor_maxN,	chin_raise_maxN,	lip_stretch_maxN,	lip_press_maxN)
+
+happyTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxH,	brow_raise_maxH,	brow_furrow_maxH,	nose_wrinkle_maxH,	upper_lip_raise_maxH,	lip_corner_depressor_maxH,	chin_raise_maxH,	lip_stretch_maxH,	lip_press_maxH)
+
+```
+
+Creating dataframes of positive AU of interest for angry, fearful. neutral, and happy trials
+```{r}
+angryTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxA)
+
+fearTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxF)
+
+neutralTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxN)
+
+happyTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxH)
+```
+
+Creating dichotomous variable for presence of positive AU (Present/Not present = PNP, P=1, NP=0)
+```{r}
+angryTrial_posAU$PNP[angryTrial_posAU$cheek_raise_maxA >= 20] <- "P"
+angryTrial_posAU$PNP[angryTrial_posAU$cheek_raise_maxA < 20] <- "NP"
+
+fearTrial_posAU$PNP[fearTrial_posAU$cheek_raise_maxF >= 20] <- "P"
+fearTrial_posAU$PNP[fearTrial_posAU$cheek_raise_maxF< 20] <- "NP"
+
+neutralTrial_posAU$PNP[neutralTrial_posAU$cheek_raise_maxN >= 20] <- "P"
+neutralTrial_posAU$PNP[neutralTrial_posAU$cheek_raise_maxN < 20] <- "NP"
+
+happyTrial_posAU$PNP[happyTrial_posAU$cheek_raise_maxH >= 20] <- "P"
+happyTrial_posAU$PNP[happyTrial_posAU$cheek_raise_maxH< 20] <- "NP"
+
+
+newangryTrial_posAU <- angryTrial_posAU %>%
+  select(CrawlingYN, PNP)
+
+newfearTrial_posAU <- fearTrial_posAU %>%
+  select(CrawlingYN, PNP)
+
+newneutralTrial_posAU <- neutralTrial_posAU %>%
+  select(CrawlingYN, PNP)
+
+newhappyTrial_posAU <- happyTrial_posAU %>%
+  select(CrawlingYN, PNP)
+
+write.csv(angryTrial_posAU, file = "angryTrial_posAU.csv", row.names = FALSE)
+write.csv(happyTrial_posAU, file = "happyTrial_posAU.csv", row.names = FALSE)
+write.csv(fearTrial_posAU, file = "fearTrial_posAU.csv", row.names = FALSE)
+write.csv(neutralTrial_posAU, file = "neutralTrial_posAU.csv", row.names = FALSE)
+```
+
+
+## 2.Contingency tables for positive AUs
+```{r}
+angryTrial_posAU_contingency <- table(newangryTrial_posAU)
+fearTrial_posAU_contingency <- table(newfearTrial_posAU)
+neutralTrial_posAU_contingency  <- table(newneutralTrial_posAU)
+happyTrial_posAU_contingency  <- table(newhappyTrial_posAU)
+
+angryTrial_posAU_contingency
+fearTrial_posAU_contingency
+neutralTrial_posAU_contingency
+happyTrial_posAU_contingency
+```
+
+Chi-square tests for positive AUs
+```{r}
+chisq.test(angryTrial_posAU_contingency)
+chisq.test(fearTrial_posAU_contingency)
+chisq.test(neutralTrial_posAU_contingency)
+chisq.test(happyTrial_posAU_contingency)
+```
+
+
+Finding the max values for the negative AUs per trial
+```{r}
+
+angryTrial_negAUs$max_neg_AU_score_A <- apply(X = angryTrial_negAUs, MARGIN = 1, FUN = max)
+fearTrial_negAUs$max_neg_AU_score_F <- apply(X = fearTrial_negAUs, MARGIN = 1, FUN = max)
+neutralTrial_negAUs$max_neg_AU_score_N <- apply(X = neutralTrial_negAUs, MARGIN = 1, FUN = max)
+happyTrial_negAUs$max_neg_AU_score_H <- apply(X = happyTrial_negAUs, MARGIN = 1, FUN = max)
+```
+
+Creating dichotomous variable for presence of negative AUs (Present/Not present = PNP, P=1, NP=0)
+```{r}
+angryTrial_negAUs$PNP[angryTrial_negAUs$max_neg_AU_score_A >= 20] <- "P"
+angryTrial_negAUs$PNP[angryTrial_negAUs$max_neg_AU_score_A < 20] <- "NP"
+
+fearTrial_negAUs$PNP[fearTrial_negAUs$max_neg_AU_score_F >= 20] <- "P"
+fearTrial_negAUs$PNP[fearTrial_negAUs$max_neg_AU_score_F < 20] <- "NP"
+
+neutralTrial_negAUs$PNP[neutralTrial_negAUs$max_neg_AU_score_N >= 20] <- "P"
+neutralTrial_negAUs$PNP[neutralTrial_negAUs$max_neg_AU_score_N < 20] <- "NP"
+
+happyTrial_negAUs$PNP[happyTrial_negAUs$max_neg_AU_score_H >= 20] <- "P"
+happyTrial_negAUs$PNP[happyTrial_negAUs$max_neg_AU_score_H < 20] <- "NP"
+
+
+newangryTrial_negAUs <- angryTrial_negAUs %>%
+  select(CrawlingYN, PNP)
+
+newfearTrial_negAUs <- fearTrial_negAUs %>%
+  select(CrawlingYN, PNP)
+
+newneutralTrial_negAUs <- neutralTrial_negAUs %>%
+  select(CrawlingYN, PNP)
+
+newhappyTrial_negAUs <- happyTrial_negAUs %>%
+  select(CrawlingYN, PNP)
+
+write.csv(angryTrial_negAUs, file = "angryTrial_negAUs.csv", row.names = FALSE)
+write.csv(happyTrial_negAUs, file = "happyTrial_negAUs.csv", row.names = FALSE)
+write.csv(fearTrial_negAUs, file = "fearTrial_negAUs.csv", row.names = FALSE)
+write.csv(neutralTrial_negAUs, file = "neutralTrial_negAUs.csv", row.names = FALSE)
+```
+
+## 3.Contingency tables for negative AUs
+```{r}
+angryTrial_negAUs_contingency <- table(newangryTrial_negAUs)
+fearTrial_negAUs_contingency <- table(newfearTrial_negAUs)
+neutralTrial_negAUs_contingency  <- table(newneutralTrial_negAUs)
+happyTrial_negAUs_contingency  <- table(newhappyTrial_negAUs)
+
+angryTrial_negAUs_contingency
+fearTrial_negAUs_contingency
+neutralTrial_negAUs_contingency
+happyTrial_negAUs_contingency
+```
+Chi-square tests for negative AUs
+```{r}
+chisq.test(angryTrial_negAUs_contingency)
+chisq.test(fearTrial_negAUs_contingency)
+chisq.test(neutralTrial_negAUs_contingency)
+chisq.test(happyTrial_negAUs_contingency)
+```
+
+_______________________________________________________________________________________________
+## 4a. Angry trial - Dichotomous variable (present = 1 (>20); not present = 0 (<20)) for each negative AU
+```{r}
+angryTrial_negAUs$PNP_innerbrow[angryTrial_negAUs$inner_brow_raise_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_innerbrow[angryTrial_negAUs$inner_brow_raise_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_browraise[angryTrial_negAUs$brow_raise_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_browraise[angryTrial_negAUs$brow_raise_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_browfurrow[angryTrial_negAUs$brow_furrow_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_browfurrow[angryTrial_negAUs$brow_furrow_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_nosewrinkle[angryTrial_negAUs$nose_wrinkle_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_nosewrinkle[angryTrial_negAUs$nose_wrinkle_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_lipraise[angryTrial_negAUs$upper_lip_raise_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_lipraise[angryTrial_negAUs$upper_lip_raise_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_lipCD[angryTrial_negAUs$lip_corner_depressor_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_lipCD[angryTrial_negAUs$lip_corner_depressor_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_chinR[angryTrial_negAUs$chin_raise_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_chinR[angryTrial_negAUs$chin_raise_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_Lstretch[angryTrial_negAUs$lip_stretch_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_Lstretch[angryTrial_negAUs$lip_stretch_maxA < 20] <- 0
+
+angryTrial_negAUs$PNP_Lpress[angryTrial_negAUs$lip_press_maxA >= 20] <- 1
+angryTrial_negAUs$PNP_Lpress[angryTrial_negAUs$lip_press_maxA < 20] <- 0
+
+newangryTrial_negAUs2 <- angryTrial_negAUs %>%
+  select(CrawlingYN, PNP_innerbrow, PNP_browraise, PNP_browfurrow, PNP_nosewrinkle, PNP_lipraise, PNP_lipCD, PNP_chinR, PNP_Lstretch, PNP_Lpress)
+```
+
+
+```{r}
+#newangryTrial_negAUs2 %>%
+#  group_by(CrawlingYN) %>%
+  
+newangryTrial_negAUs2 %>%
+  mutate(total = rowSums(.,PNP_innerbrow:PNP_Lpress))
+
+summed <- rowSums(newangryTrial_negAUs2[, c(2, 3, 4, 5, 6, 7, 8, 9, 10)])
+newangryTrial_negAUs2$summed <- summed
+```
+
+```{r}
+newangryTrial_negAUs2b <- newangryTrial_negAUs2 %>%
+  select(CrawlingYN, summed)
+
+avg_newangryTrial_negAUs2 <- newangryTrial_negAUs2b %>%
+      group_by(CrawlingYN) %>%
+      summarise(mean_negAUs = mean(summed))
+
+avg_newangryTrial_negAUs2
+```
+
+T-test: Angry
+```{r}
+resA <- t.test(summed ~ CrawlingYN, data = newangryTrial_negAUs2b, var.equal = TRUE)
+resA
+```
+
+
+## 4b. Fear trial - Dichotomous variable (present = 1 (>20); not present = 0 (<20)) for each negative AU
+```{r}
+fearTrial_negAUs$PNP_innerbrow[fearTrial_negAUs$inner_brow_raise_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_innerbrow[fearTrial_negAUs$inner_brow_raise_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_browraise[fearTrial_negAUs$brow_raise_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_browraise[fearTrial_negAUs$brow_raise_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_browfurrow[fearTrial_negAUs$brow_furrow_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_browfurrow[fearTrial_negAUs$brow_furrow_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_nosewrinkle[fearTrial_negAUs$nose_wrinkle_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_nosewrinkle[fearTrial_negAUs$nose_wrinkle_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_lipraise[fearTrial_negAUs$upper_lip_raise_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_lipraise[fearTrial_negAUs$upper_lip_raise_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_lipCD[fearTrial_negAUs$lip_corner_depressor_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_lipCD[fearTrial_negAUs$lip_corner_depressor_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_chinR[fearTrial_negAUs$chin_raise_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_chinR[fearTrial_negAUs$chin_raise_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_Lstretch[fearTrial_negAUs$lip_stretch_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_Lstretch[fearTrial_negAUs$lip_stretch_maxF < 20] <- 0
+
+fearTrial_negAUs$PNP_Lpress[fearTrial_negAUs$lip_press_maxF >= 20] <- 1
+fearTrial_negAUs$PNP_Lpress[fearTrial_negAUs$lip_press_maxF < 20] <- 0
+
+newfearTrial_negAUs2 <- fearTrial_negAUs %>%
+  select(CrawlingYN, PNP_innerbrow, PNP_browraise, PNP_browfurrow, PNP_nosewrinkle, PNP_lipraise, PNP_lipCD, PNP_chinR, PNP_Lstretch, PNP_Lpress)
+```
+
+
+```{r}
+
+newfearTrial_negAUs2 %>%
+  mutate(total = rowSums(.,PNP_innerbrow:PNP_Lpress))
+
+summed <- rowSums(newfearTrial_negAUs2[, c(2, 3, 4, 5, 6, 7, 8, 9, 10)])
+newfearTrial_negAUs2$summed <- summed
+```
+
+
+```{r}
+newfearTrial_negAUs2b <- newfearTrial_negAUs2 %>%
+  select(CrawlingYN, summed)
+
+avg_newfearTrial_negAUs2 <- newfearTrial_negAUs2b %>%
+      group_by(CrawlingYN) %>%
+      summarise(mean_negAUs = mean(summed))
+
+avg_newfearTrial_negAUs2
+```
+
+```{r}
+resF <- t.test(summed ~ CrawlingYN, data = newfearTrial_negAUs2b, var.equal = TRUE)
+resF
+```
+
+## 4c. Neutral trial - Dichotomous variable (present = 1 (>20); not present = 0 (<20)) for each negative AU
+```{r}
+neutralTrial_negAUs$PNP_innerbrow[neutralTrial_negAUs$inner_brow_raise_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_innerbrow[neutralTrial_negAUs$inner_brow_raise_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_browraise[neutralTrial_negAUs$brow_raise_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_browraise[neutralTrial_negAUs$brow_raise_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_browfurrow[neutralTrial_negAUs$brow_furrow_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_browfurrow[neutralTrial_negAUs$brow_furrow_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_nosewrinkle[neutralTrial_negAUs$nose_wrinkle_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_nosewrinkle[neutralTrial_negAUs$nose_wrinkle_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_lipraise[neutralTrial_negAUs$upper_lip_raise_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_lipraise[neutralTrial_negAUs$upper_lip_raise_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_lipCD[neutralTrial_negAUs$lip_corner_depressor_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_lipCD[neutralTrial_negAUs$lip_corner_depressor_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_chinR[neutralTrial_negAUs$chin_raise_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_chinR[neutralTrial_negAUs$chin_raise_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_Lstretch[neutralTrial_negAUs$lip_stretch_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_Lstretch[neutralTrial_negAUs$lip_stretch_maxN < 20] <- 0
+
+neutralTrial_negAUs$PNP_Lpress[neutralTrial_negAUs$lip_press_maxN >= 20] <- 1
+neutralTrial_negAUs$PNP_Lpress[neutralTrial_negAUs$lip_press_maxN < 20] <- 0
+
+newneutralTrial_negAUs2 <- neutralTrial_negAUs %>%
+  select(CrawlingYN, PNP_innerbrow, PNP_browraise, PNP_browfurrow, PNP_nosewrinkle, PNP_lipraise, PNP_lipCD, PNP_chinR, PNP_Lstretch, PNP_Lpress)
+```
+
+```{r}
+
+newneutralTrial_negAUs2 %>%
+  mutate(total = rowSums(.,PNP_innerbrow:PNP_Lpress))
+
+summed <- rowSums(newneutralTrial_negAUs2[, c(2, 3, 4, 5, 6, 7, 8, 9, 10)])
+newneutralTrial_negAUs2$summed <- summed
+```
+
+```{r}
+newneutralTrial_negAUs2b <- newneutralTrial_negAUs2 %>%
+  select(CrawlingYN, summed)
+
+avg_newneutralTrial_negAUs2 <- newneutralTrial_negAUs2b %>%
+      group_by(CrawlingYN) %>%
+      summarise(mean_negAUs = mean(summed))
+
+avg_newneutralTrial_negAUs2
+```
+
+```{r}
+resN <- t.test(summed ~ CrawlingYN, data = newneutralTrial_negAUs2b, var.equal = TRUE)
+resN
+```
+
+## 4d. Happy trial - Dichotomous variable (present = 1 (>20); not present = 0 (<20)) for each negative AU
+```{r}
+happyTrial_negAUs$PNP_innerbrow[happyTrial_negAUs$inner_brow_raise_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_innerbrow[happyTrial_negAUs$inner_brow_raise_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_browraise[happyTrial_negAUs$brow_raise_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_browraise[happyTrial_negAUs$brow_raise_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_browfurrow[happyTrial_negAUs$brow_furrow_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_browfurrow[happyTrial_negAUs$brow_furrow_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_nosewrinkle[happyTrial_negAUs$nose_wrinkle_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_nosewrinkle[happyTrial_negAUs$nose_wrinkle_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_lipraise[happyTrial_negAUs$upper_lip_raise_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_lipraise[happyTrial_negAUs$upper_lip_raise_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_lipCD[happyTrial_negAUs$lip_corner_depressor_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_lipCD[happyTrial_negAUs$lip_corner_depressor_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_chinR[happyTrial_negAUs$chin_raise_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_chinR[happyTrial_negAUs$chin_raise_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_Lstretch[happyTrial_negAUs$lip_stretch_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_Lstretch[happyTrial_negAUs$lip_stretch_maxH < 20] <- 0
+
+happyTrial_negAUs$PNP_Lpress[happyTrial_negAUs$lip_press_maxH >= 20] <- 1
+happyTrial_negAUs$PNP_Lpress[happyTrial_negAUs$lip_press_maxH < 20] <- 0
+
+newhappyTrial_negAUs2 <- happyTrial_negAUs %>%
+  select(CrawlingYN, PNP_innerbrow, PNP_browraise, PNP_browfurrow, PNP_nosewrinkle, PNP_lipraise, PNP_lipCD, PNP_chinR, PNP_Lstretch, PNP_Lpress)
+```
+
+```{r}
+
+newhappyTrial_negAUs2 %>%
+  mutate(total = rowSums(.,PNP_innerbrow:PNP_Lpress))
+
+summed <- rowSums(newhappyTrial_negAUs2[, c(2, 3, 4, 5, 6, 7, 8, 9, 10)])
+newhappyTrial_negAUs2$summed <- summed
+```
+
+```{r}
+newhappyTrial_negAUs2b <- newhappyTrial_negAUs2 %>%
+  select(CrawlingYN, summed)
+
+avg_newhappyTrial_negAUs2 <- newhappyTrial_negAUs2b %>%
+      group_by(CrawlingYN) %>%
+      summarise(mean_negAUs = mean(summed))
+
+avg_newhappyTrial_negAUs2
+```
+
+```{r}
+resH <- t.test(summed ~ CrawlingYN, data = newhappyTrial_negAUs2b, var.equal = TRUE)
+resH
+```
+
+```{r}
+newhappyTrial_negAUs2b$trial <- "happy"
+newneutralTrial_negAUs2b$trial <- "neutral"
+newfearTrial_negAUs2b$trial <- "fear"
+newangryTrial_negAUs2b$trial <- "angry"
+
+test <- rbind(newhappyTrial_negAUs2b, newneutralTrial_negAUs2b, newfearTrial_negAUs2b, newangryTrial_negAUs2b)
+
+avg_test <- test %>%
+      select(trial, summed) %>%
+      group_by(trial) %>%
+      summarise(mean_trial = mean(summed))
+ 
+avg_test
+ 
+```
+
+
+_________________________________________________________________________________________________________
+
+5a. Number of types of AUs different between groups - Angry
+```{r}
+angry_sumByAU <- newangryTrial_negAUs2 %>%
+      group_by(CrawlingYN) %>%
+      summarise(
+            sumPNP_IB = sum(PNP_innerbrow),
+            sumPNP_BR = sum(PNP_browraise),
+            sumPNP_BF = sum(PNP_browfurrow),
+            sumPNP_CR = sum(PNP_chinR),
+            sumPNP_NW = sum(PNP_nosewrinkle),
+            sumPNP_LR = sum(PNP_lipraise),
+            sumPNP_lipCD = sum(PNP_lipCD),
+            sumPNP_lipS = sum(PNP_Lstretch),
+            sumPNP_lipP = sum(PNP_Lpress)
+      )
+
+angry_sumByAU
+
+
+```
+
+```{r}
+resA2 <- t.test(PNP_browfurrow ~ CrawlingYN, data = newangryTrial_negAUs2, var.equal = TRUE)
+resA2
+```
+
+

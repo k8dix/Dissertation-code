@@ -1,0 +1,269 @@
+---
+title: "EP analyses"
+output: html_notebook
+---
+
+## 1. Mean look time per facial expression for each crawling group and data viz
+## 2. One sample t-tests (A/H, F/A, H/N, H/F, N/F, A/N)
+## 3. 2 X 4 mixed model ANOVA
+
+
+_________________________________________________________________________________________________
+Set WD
+```{r}
+setwd("~/MATLAB")
+```
+
+Libraries
+```{r}
+library(readxl)
+library(formattable)
+library(tidyverse)
+library(car)
+library(apaTables)
+library(jtools)
+
+```
+
+Getting data
+```{r}
+EPAR_full <- read_excel("EP SPSS (N = 56) 8.22.xlsx")
+```
+
+_____________________________________________________________________________________________
+## 1. Mean look time per facial expression for each crawling group
+```{r}
+avg_LT <- EPAR_full %>%
+  select(CrawlingYN, avgperctH_AH, avgperctA_AH, avgperctF_FA, avgperctA_FA, avgperctH_HN, avgperctN_HN, avgperctH_HF, avgperctF_HF, avgperctN_NF, avgperctF_NF, avgperctA_AN, avgperctN_AN) %>%
+  group_by(CrawlingYN) %>%
+  summarize(meanH_AH = mean(avgperctH_AH, na.rm = TRUE),
+            meanA_AH = mean(avgperctA_AH, na.rm = TRUE),
+            meanF_FA = mean(avgperctF_FA, na.rm = TRUE),
+            meanA_FA = mean(avgperctA_FA, na.rm = TRUE),
+            meanH_HN = mean(avgperctH_HN, na.rm = TRUE),
+            meanN_HN = mean(avgperctN_HN, na.rm = TRUE),
+            meanH_HF = mean(avgperctH_HF, na.rm = TRUE),
+            meanF_HF = mean(avgperctF_HF, na.rm = TRUE),
+            meanN_NF = mean(avgperctN_NF, na.rm = TRUE),
+            meanF_NF = mean(avgperctF_NF, na.rm = TRUE),
+            meanA_AN = mean(avgperctA_AN, na.rm = TRUE),
+            meanN_AN = mean(avgperctN_AN, na.rm = TRUE)
+            )
+avg_LT
+```
+
+Reshaping the above table for graphing purposes
+```{r}
+means_EPAR <- avg_LT %>% 
+  gather(Expression, Proportion, meanH_AH:meanN_AN)
+means_EPAR
+```
+
+Add pair column
+```{r}
+Pairs <- c("AH", "AH", "AH", "AH", "FA", "FA", "FA", "FA", "HN", "HN", "HN", "HN", "HF", "HF", "HF", "HF", "NF", "NF", "NF", "NF", "AN", "AN", "AN", "AN")
+
+means_EPAR <- cbind(means_EPAR, Pairs)
+```
+
+Bar graph of mean total look time to certain face in each expression pair based on crawling status
+```{r}
+
+means_EPAR$CrawlingYN <- factor(means_EPAR$CrawlingYN, levels = c("0", "1"), 
+                  labels = c("Pre-Crawlers", "Experienced Crawlers"))
+
+
+means_EPAR$Expression <- factor(means_EPAR$Expression, levels = c("meanH_AH", "meanA_AH", "meanF_FA", "meanA_FA", "meanH_HN", "meanN_HN", "meanH_HF", "meanF_HF", "meanN_NF", "meanF_NF", "meanA_AN", "meanN_AN"), 
+                  labels = c("Happy", "Angry", "Fear", "Angry", "Happy", "Neutral", "Happy", "Fear", "Neutral", "Fear", "Angry", "Neutral"))
+
+asterisks2 <- data.frame(Pair = c("FA", "HF", "FA", "NF"),
+                        Percentage = c(.62, .62, .63, .58),
+                        CrawlingYN = c("Pre-Crawlers", "Pre-Crawlers", "Experienced Crawlers",                         "Experienced Crawlers"))
+
+ggplot(means_EPAR, aes(x = factor(Pairs), y = Proportion, fill = factor(Expression))) +
+  geom_bar(position = "dodge", stat = "identity") +
+  facet_grid(. ~ CrawlingYN) +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  xlab("Expression Pairs") +
+  ylab("Proportion of Look Time") +
+  theme_apa(legend.pos = "right", legend.use.title = FALSE,
+  legend.font.size = 10, x.font.size = 12, y.font.size = 12,
+  facet.title.size = 10, remove.y.gridlines = TRUE,
+  remove.x.gridlines = TRUE) +
+  theme(legend.key.size = unit(0.5, "cm"),
+  legend.key.width = unit(0.5,"cm"))
+
+```
+
+___________________________________________________________________________________________________
+
+## 2. One sample t-tests (A/H, F/A, H/N, H/F, N/F, A/N)
+
+Crawlers
+```{r}
+# Splitting main dataframe into crawlers and non-crawlers
+crawlers <- EPAR_full %>% 
+  filter(CrawlingYN == 1)
+
+non_crawlers <- EPAR_full %>%
+  filter(CrawlingYN == 0)
+
+# Normality test - crawlers
+shapiro.test(crawlers$avgperctA_AH)
+shapiro.test(crawlers$avgperctA_AN)
+shapiro.test(crawlers$avgperctF_FA)
+shapiro.test(crawlers$avgperctN_HN)
+shapiro.test(crawlers$avgperctF_NF)
+shapiro.test(crawlers$avgperctF_HF)
+
+# Crawlers t-tests
+resultA_AH_C <- t.test(crawlers$avgperctA_AH, mu = 0.50)
+resultA_AN_C <- t.test(crawlers$avgperctA_AN, mu = 0.50)
+resultF_FA_C <- t.test(crawlers$avgperctF_FA, mu = 0.50)
+resultF_HF_C <- t.test(crawlers$avgperctF_HF, mu = 0.50)
+resultN_HN_C <- t.test(crawlers$avgperctN_HN, mu = 0.50)
+resultF_NF_C <- t.test(crawlers$avgperctF_NF, mu = 0.50)
+
+resultA_AH_C
+resultA_AN_C
+resultF_FA_C
+resultF_HF_C
+resultN_HN_C
+resultF_NF_C
+
+```
+
+
+Bar graph for crawlers (have to change where asterisks are based on above significance)
+```{r}
+avg_percts_C <- crawlers %>%
+  select(avgperctA_AH, avgperctA_AN, avgperctF_FA, avgperctF_HF, avgperctF_NF, avgperctN_HN) %>%
+  summarize(mean_perctA_AHC = mean(avgperctA_AH, na.rm = TRUE),
+            mean_perctA_ANC = mean(avgperctA_AN, na.rm = TRUE),
+            mean_perctF_FAC = mean(avgperctF_FA, na.rm = TRUE),
+            mean_perctF_HFC = mean(avgperctF_HF, na.rm = TRUE),
+            mean_perctF_NFC = mean(avgperctF_NF, na.rm = TRUE),
+            mean_perctN_HNC = mean (avgperctN_HN, na.rm = TRUE))
+
+means_crawlers_prop <- avg_percts_C %>% 
+  gather(Pair, Proportion, mean_perctA_AHC:mean_perctN_HNC)
+
+asterisks <- data.frame(Pair = c("mean_perctF_FAC", "mean_perctF_NFC"),
+                        Percentage = c(.63, .58))
+
+C_bargraph <- ggplot(means_crawlers_prop, aes(x = factor(Pair), y = Proportion)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks, label = "*", size = 10)
+C_bargraph
+```
+
+Non-crawlers
+```{r}
+# Normality test - NC
+shapiro.test(non_crawlers$avgperctA_AH)
+shapiro.test(non_crawlers$avgperctA_AN)
+shapiro.test(non_crawlers$avgperctF_FA)
+shapiro.test(non_crawlers$avgperctN_HN)
+shapiro.test(non_crawlers$avgperctF_NF)
+shapiro.test(non_crawlers$avgperctF_HF)
+
+# NC t-tests
+resultA_AH_NC <- t.test(non_crawlers$avgperctA_AH, mu = 0.50)
+resultA_AN_NC <- t.test(non_crawlers$avgperctA_AN, mu = 0.50)
+resultF_FA_NC <- t.test(non_crawlers$avgperctF_FA, mu = 0.50)
+resultF_HF_NC <- t.test(non_crawlers$avgperctF_HF, mu = 0.50)
+resultN_HN_NC <- t.test(non_crawlers$avgperctN_HN, mu = 0.50)
+resultF_NF_NC <- t.test(non_crawlers$avgperctF_NF, mu = 0.50)
+
+resultA_AH_NC
+resultA_AN_NC
+resultF_FA_NC
+resultF_HF_NC
+resultN_HN_NC
+resultF_NF_NC
+
+```
+
+Bar graph for non_crawlers (have to change where asterisks are based on above significance)
+```{r}
+avg_percts_NC <- crawlers %>%
+  select(avgperctA_AH, avgperctA_AN, avgperctF_FA, avgperctF_HF, avgperctF_NF, avgperctN_HN) %>%
+  summarize(mean_perctA_AHNC = mean(avgperctA_AH, na.rm = TRUE),
+            mean_perctA_ANNC = mean(avgperctA_AN, na.rm = TRUE),
+            mean_perctF_FANC = mean(avgperctF_FA, na.rm = TRUE),
+            mean_perctF_HFNC = mean(avgperctF_HF, na.rm = TRUE),
+            mean_perctF_NFNC = mean(avgperctF_NF, na.rm = TRUE),
+            mean_perctN_HNNC = mean (avgperctN_HN, na.rm = TRUE))
+
+means_non_crawlers_prop <- avg_percts_NC %>% 
+  gather(Pair, Proportion, mean_perctA_AHNC:mean_perctN_HNNC)
+
+asterisks <- data.frame(Pair = c("mean_perctF_FANC", "mean_perctF_HFNC"),
+                        Percentage = c(.61, .61))
+
+NC_bar <- ggplot(means_non_crawlers_prop, aes(x = factor(Pair), y = Proportion)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_cartesian(ylim = c(0.3, 0.7)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", size = 0.5) +
+  geom_text(data = asterisks, label = "*", size = 10)
+NC_bar
+```
+________________________________________________________________________________________
+## 3. 2 (crawling status: experienced crawlers, pre-crawlers) x 4 (expression: fearful. angry, happy, neutral) mixed model ANOVA 
+
+```{r}
+EPAR_ANOVA <- EPAR_full %>%
+  select(CrawlingYN, avgTLTHappy, avgTLTFear, avgTLTAngry, avgTLTNeutral)
+
+EPAR_ANOVA_long <- EPAR_ANOVA %>% 
+  gather(Expression, TLT, avgTLTHappy:avgTLTNeutral)
+
+EPAR_ANOVA_long$Expression <- as.factor(EPAR_ANOVA_long$Expression)
+EPAR_ANOVA_long$CrawlingYN <- as.factor(EPAR_ANOVA_long$CrawlingYN)
+
+levels(EPAR_ANOVA_long$Expression) <- list("Happy" = "avgTLTHappy", "Fear" = "avgTLTFear", "Angry" = "avgTLTAngry", "Neutral" = "avgTLTNeutral")
+levels(EPAR_ANOVA_long$CrawlingYN) <- list("Non-Crawler" = 0, "Crawler"= 1)
+
+options(contrasts = c("contr.helmert", "contr.poly"))
+
+my_EPAR_anova <- aov(TLT ~ CrawlingYN * Expression, data = EPAR_ANOVA_long)
+Anova(my_EPAR_anova, type = "III")
+```
+
+```{r}
+EPAR_bar <- EPAR_ANOVA %>%
+  summarize(mean_Happy = mean(avgTLTHappy, na.rm = TRUE),
+            mean_Fear = mean(avgTLTFear, na.rm = TRUE),
+            mean_Neutral = mean(avgTLTNeutral, na.rm = TRUE),
+            mean_Angry = mean(avgTLTAngry, na.rm = TRUE),
+            sd_Happy = sd(avgTLTHappy),
+            sd_Fear = sd(avgTLTFear),
+            sd_Neutral = sd(avgTLTNeutral),
+            sd_Angry = sd(avgTLTAngry),
+            se_Happy = sd_Happy/sqrt(56),
+            se_Fear = sd_Fear/sqrt(56),
+            se_Neutral = sd_Neutral/sqrt(56),
+            se_Angry = sd_Angry/sqrt(56))
+
+EPAR_bar_long <- EPAR_bar %>% 
+  gather(Expression, TLT, mean_Happy:mean_Angry)
+
+##can i change "identity" and create the mean that way so I can have error bars? or can i manually insert the error bars like the asterisks?
+
+ANOVA_bar <- ggplot(EPAR_bar_long, aes(x = factor(Expression), y = TLT, fill = factor(Expression))) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme_apa(legend.pos = "right", legend.use.title = FALSE,
+  legend.font.size = 12, x.font.size = 12, y.font.size = 12,
+  facet.title.size = 12, remove.y.gridlines = TRUE,
+  remove.x.gridlines = TRUE)
+      
+      #geom_errorbar(aes(ymin= TLT - , ymax=len+sd), width=.2,
+                # position=position_dodge(.9)) 
+
+ANOVA_bar
+
+```
+

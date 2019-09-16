@@ -1,0 +1,475 @@
+---
+title: "AR- Proposed analysis to exploratory hypothesis #2 (intensity)"
+output: html_notebook
+---
+
+*Kate Dixon - 2019*
+
+## Do the intensities of AUs produced in response to different expressions differ by crawling status? 
+
+The maximum intensity score for each AU of interest will be selected for each participant per trial. Of these, the highest score for the 9 negative AUs will be used as the maximum negative AU score (this is unecessary for the positive AU group because there is only one AU that is consistently implicated as an indicator of only positive affect in infants, i.e., it is never associated with negative affect in infants). The maximum score per trial of this AU will become the maximum positive AU score.
+
+Two mixed model ANOVAs (one for maximum positive AU scores and one for negative) will be used to examine the association between expression (4: angry, happy, neutral, fearful) and crawling status (2: pre-crawler, experienced crawler) on AU intensity.
+
+Planned comparisons (independent t-tests) will be used to examine interactions.
+
+
+1. Data wrangling (line 20)
+2. Positive ANOVA (120)
+3. Positive ANOVA with log10 transformation of intensity (188)
+4. Positive ANOVA with 1/x + 1 transformation intensity (232)
+5. Negative ANOVA (280)
+6. Negative ANOVA with log transformation of intensity (352)
+7. Non-parametric independent samples tests (408)
+____________________________________________________________________________________________________
+ 
+## 1. Data wrangling (reading data into R, reshaping, calculating maximum intensity scores, etc.) 
+
+Set WD
+```{r}
+setwd("~/MATLAB")
+```
+
+Libraries
+```{r}
+library(readxl)
+library(formattable)
+library(tidyverse)
+library(car)
+library(psych)
+```
+
+Getting data
+```{r}
+EPAR_full <- read_excel("EP SPSS (N = 56) 8.22.xlsx")
+```
+
+Creating dataframes of negative AUs of interest for angry, fearful. neutral, and happy trials
+```{r}
+angryTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxA,	brow_raise_maxA,	brow_furrow_maxA,	nose_wrinkle_maxA,	upper_lip_raise_maxA,	lip_corner_depressor_maxA,	chin_raise_maxA,	lip_stretch_maxA,	lip_press_maxA)
+
+fearTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxF,	brow_raise_maxF,	brow_furrow_maxF,	nose_wrinkle_maxF,	upper_lip_raise_maxF,	lip_corner_depressor_maxF,	chin_raise_maxF,	lip_stretch_maxF,	lip_press_maxF)
+
+neutralTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxN,	brow_raise_maxN,	brow_furrow_maxN,	nose_wrinkle_maxN,	upper_lip_raise_maxN,	lip_corner_depressor_maxN,	chin_raise_maxN,	lip_stretch_maxN,	lip_press_maxN)
+
+happyTrial_negAUs <- EPAR_full %>%
+  select(CrawlingYN, inner_brow_raise_maxH,	brow_raise_maxH,	brow_furrow_maxH,	nose_wrinkle_maxH,	upper_lip_raise_maxH,	lip_corner_depressor_maxH,	chin_raise_maxH,	lip_stretch_maxH,	lip_press_maxH)
+
+```
+
+Creating dataframes of positive AU of interest for angry, fearful. neutral, and happy trials
+```{r}
+angryTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxA)
+
+fearTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxF)
+
+neutralTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxN)
+
+happyTrial_posAU <- EPAR_full %>%
+  select(CrawlingYN, cheek_raise_maxH)
+```
+
+Finding highest score for the 9 negative AUs per trial, becomes max negative AU score
+```{r}
+angryTrial_negAUs$max_neg_AU_score_A <- apply(X = angryTrial_negAUs, MARGIN = 1, FUN = max)
+fearTrial_negAUs$max_neg_AU_score_F <- apply(X = fearTrial_negAUs, MARGIN = 1, FUN = max)
+neutralTrial_negAUs$max_neg_AU_score_N <- apply(X = neutralTrial_negAUs, MARGIN = 1, FUN = max)
+happyTrial_negAUs$max_neg_AU_score_H <- apply(X = happyTrial_negAUs, MARGIN = 1, FUN = max)
+```
+
+Long df for max positive AU intensity per trial (posANOVAdf_long) (wide = posANOVAdf)
+```{r}
+maxposAU_H <- happyTrial_posAU$cheek_raise_maxH
+maxposAU_F <- fearTrial_posAU$cheek_raise_maxF
+maxposAU_N <- neutralTrial_posAU$cheek_raise_maxN
+maxposAU_A <- angryTrial_posAU$cheek_raise_maxA
+crawlingYN <- angryTrial_posAU$CrawlingYN
+
+posANOVAdf <- cbind(crawlingYN, maxposAU_A, maxposAU_F, maxposAU_H, maxposAU_N)
+
+posANOVAdf <- as.data.frame(posANOVAdf)
+
+posANOVAdf_long <- posANOVAdf %>%
+  gather(Expression, Intensity, maxposAU_A:maxposAU_N)
+
+posANOVAdf_long <- as.data.frame(posANOVAdf_long)
+
+#posANOVAdf %>%
+#  pivot_longer(-CrawlingYN, names_to = "Expression", values_to = "Intensity")
+
+```
+
+Long df for max negative AU intensity per trial (negANOVAdf_long) (wide = negANOVAdf)
+```{r}
+maxnegAU_H <- happyTrial_negAUs$max_neg_AU_score_H
+maxnegAU_F <- fearTrial_negAUs$max_neg_AU_score_F
+maxnegAU_N <- neutralTrial_negAUs$max_neg_AU_score_N
+maxnegAU_A <- angryTrial_negAUs$max_neg_AU_score_A
+crawlingYN <- angryTrial_negAUs$CrawlingYN
+
+negANOVAdf <- cbind(crawlingYN, maxnegAU_A, maxnegAU_F, maxnegAU_H, maxnegAU_N)
+negANOVAdf <- as.data.frame(negANOVAdf)
+
+negANOVAdf_long <- negANOVAdf %>%
+  gather(Expression, Intensity, maxnegAU_A:maxnegAU_N)
+
+write.csv(negANOVAdf, file = "negANOVAdf.csv", row.names = FALSE)
+write.csv(posANOVAdf, file = "posANOVAdf.csv", row.names = FALSE)
+
+```
+
+_____________________________________________________________________________________________________
+
+## 2. Positive ANOVA
+
+Max positive AU intensity for each expression- Two-way ANOVA (Crawling status: crawler, non-crawler; Expression: angry, happy, neutral, fearful)- effect of grouping variables on a response variable (intensity)
+
+Checks structure and recodes IVs as factors 
+```{r}
+str(posANOVAdf_long)
+
+posANOVAdf_long$crawlingYN <- factor(posANOVAdf_long$crawlingYN,
+                          levels = c(0, 1),
+                          labels = c("non-crawling", "crawling"))
+
+posANOVAdf_long$Expression <- factor(posANOVAdf_long$Expression,
+                                     levels = c("maxposAU_A", "maxposAU_F", "maxposAU_H", "maxposAU_N"),
+                                     labels = c("angry_trial", "fearful_trial", "happy_trial", "neutral_trial"))
+
+str(posANOVAdf_long)
+```
+
+Frequency tables
+```{r}
+table(posANOVAdf_long$crawlingYN, posANOVAdf_long$Expression)
+```
+
+
+```{r}
+ggplot(data = posANOVAdf_long, aes(x = Expression, y = Intensity, color = crawlingYN)) +
+  geom_boxplot() +
+  coord_cartesian(ylim = c(-25, 100)) +
+  ggtitle("Max Positive AUs")
+```
+
+Summary stats
+```{r}
+group_by(posANOVAdf_long, crawlingYN, Expression) %>%
+  summarise(
+    count = n(),
+    mean = mean(Intensity, na.rm = TRUE),
+    sd = sd(Intensity, na.rm = TRUE)
+  )
+```
+
+
+ANOVA
+```{r}
+my_anova <- aov(Intensity ~ Expression * crawlingYN, data = posANOVAdf_long)
+Anova(my_anova, type = "III")
+```
+
+Check homogeneity of variance
+```{r}
+leveneTest(Intensity ~ Expression * crawlingYN, data = posANOVAdf_long)
+```
+
+Check normality assumption (verify that residuals are normally distributed)
+```{r}
+
+#Extract the residuals
+aov_residuals <- residuals(object = my_anova)
+
+#Run Shapiro-Wilk test
+shapiro.test(x = aov_residuals)
+```
+```{r}
+plot(my_anova, 2)
+```
+
+__________________________________________________________________________________________________
+## 3. Log10 transformation of Intensity
+```{r}
+Intensity_log <- posANOVAdf_long %>%
+  select(Intensity)
+
+Intensity_log <- log10(Intensity_log$Intensity + 1)
+
+posANOVAdf_long$Intensity_log <- Intensity_log
+```
+
+
+```{r}
+ggplot(data = posANOVAdf_long, aes(x = Expression, y = Intensity_log, color = crawlingYN)) +
+  geom_boxplot() +
+  coord_cartesian(ylim = c(-0.5, 2))
+```
+ANOVA w/ logtransformed data
+```{r}
+my_anova2 <- aov(Intensity_log ~ Expression * crawlingYN, data = posANOVAdf_long)
+Anova(my_anova2, type = "III")
+```
+
+Check homogeneity of variance (logtansformed)
+```{r}
+leveneTest(Intensity_log ~ Expression * crawlingYN, data = posANOVAdf_long)
+```
+
+Check normality assumption (verify that residuals are normally distributed) (logtansformed)
+```{r}
+
+#Extract the residuals
+aov_residuals2 <- residuals(object = my_anova2)
+
+#Run Shapiro-Wilk test
+shapiro.test(x = aov_residuals2)
+
+plot(my_anova2, 2)
+```
+```{r}
+describe(posANOVAdf_long)
+
+```
+
+__________________________________________________________________________________________________
+## 4. Another transformation of Intensity
+```{r}
+Intensity_sev <- posANOVAdf_long %>%
+  select(Intensity)
+
+Intensity_sev <- 1/(Intensity_sev$Intensity + 1)
+
+posANOVAdf_long$Intensity_sev <- Intensity_sev
+```
+
+```{r}
+describe(posANOVAdf_long)
+```
+
+
+```{r}
+ggplot(data = posANOVAdf_long, aes(x = Expression, y = Intensity_sev, color = crawlingYN)) +
+  geom_boxplot() +
+  coord_cartesian(ylim = c(-0.25, 1.25))
+```
+
+ANOVA w/ severe transformed data
+```{r}
+my_anova3 <- aov(Intensity_sev ~ Expression * crawlingYN, data = posANOVAdf_long)
+Anova(my_anova3, type = "III")
+
+my_anova3a <- aov(Intensity_sev ~ Expression, data = posANOVAdf_long)
+Anova(my_anova3, type = "III")
+
+```
+
+Check homogeneity of variance 
+```{r}
+leveneTest(Intensity_sev ~ Expression * crawlingYN, data = posANOVAdf_long)
+```
+
+Check normality assumption (verify that residuals are normally distributed) 
+```{r}
+
+#Extract the residuals
+aov_residuals3 <- residuals(object = my_anova3)
+
+#Run Shapiro-Wilk test
+shapiro.test(x = aov_residuals3)
+
+plot(my_anova3, 2)
+```
+
+__________________________________________________________________________________________________
+## 5. Negative ANOVA
+
+Max negative AU intensity for each expression- Two-way ANOVA (Crawling status: crawler, non-crawler; Expression: angry, happy, neutral, fearful)- effect of grouping variables on a response variable (intensity)
+
+Checks structure and recodes IVs as factors 
+```{r}
+str(negANOVAdf_long)
+
+negANOVAdf_long$crawlingYN <- factor(negANOVAdf_long$crawlingYN,
+                          levels = c(0, 1),
+                          labels = c("non-crawling", "crawling"))
+
+negANOVAdf_long$Expression <- factor(negANOVAdf_long$Expression,
+                                     levels = c("maxnegAU_A", "maxnegAU_F", "maxnegAU_H", "maxnegAU_N"),
+                                     labels = c("angry_trial", "fearful_trial", "happy_trial", "neutral_trial"))
+
+str(negANOVAdf_long)
+```
+
+
+Frequency tables
+```{r}
+table(negANOVAdf_long$crawlingYN, negANOVAdf_long$Expression)
+```
+
+Boxplots
+```{r}
+ggplot(data = negANOVAdf_long, aes(x = Expression, y = Intensity, color = crawlingYN)) +
+  geom_boxplot() +
+  coord_cartesian(ylim = c(35, 110))
+```
+
+Summary stats
+```{r}
+group_by(negANOVAdf_long, crawlingYN, Expression) %>%
+  summarise(
+    count = n(),
+    mean = mean(Intensity, na.rm = TRUE),
+    sd = sd(Intensity, na.rm = TRUE)
+  )
+```
+
+ANOVA
+```{r}
+my_anovaN <- aov(Intensity ~ Expression * crawlingYN, data = negANOVAdf_long)
+Anova(my_anovaN, type = "III")
+```
+
+Check homogeneity of variance
+```{r}
+leveneTest(Intensity ~ Expression * crawlingYN, data = negANOVAdf_long)
+```
+
+Check normality assumption (verify that residuals are normally distributed)
+```{r}
+
+#Extract the residuals
+aov_residualsN <- residuals(object = my_anovaN)
+
+#Run Shapiro-Wilk test
+shapiro.test(x = aov_residualsN)
+```
+```{r}
+plot(my_anovaN, 2)
+```
+
+
+```{r}
+describe(negANOVAdf_long)
+```
+__________________________________________________________________________________________________
+
+## 6. Transformation of Intensity (log)
+```{r}
+Intensity_sev2 <- negANOVAdf_long %>%
+  select(Intensity)
+
+Intensity_sev2 <- log((101 - Intensity_sev2$Intensity))
+
+negANOVAdf_long$Intensity_sev2 <- Intensity_sev2
+```
+
+```{r}
+describe(negANOVAdf_long)
+
+```
+
+```{r}
+ggplot(data = negANOVAdf_long, aes(x = Expression, y = Intensity_sev2, color = crawlingYN)) +
+  geom_boxplot()
+```
+
+Summary stats
+```{r}
+group_by(negANOVAdf_long, crawlingYN, Expression) %>%
+  summarise(
+    count = n(),
+    mean = mean(Intensity_sev2, na.rm = TRUE),
+    sd = sd(Intensity_sev2, na.rm = TRUE)
+  )
+```
+
+ANOVA
+```{r}
+my_anovaN2 <- aov(Intensity_sev2 ~ Expression * crawlingYN, data = negANOVAdf_long)
+Anova(my_anovaN2, type = "III")
+```
+
+Check homogeneity of variance
+```{r}
+leveneTest(Intensity_sev2 ~ Expression * crawlingYN, data = negANOVAdf_long)
+```
+
+Check normality assumption (verify that residuals are normally distributed)
+```{r}
+
+#Extract the residuals
+aov_residualsN2 <- residuals(object = my_anovaN2)
+
+#Run Shapiro-Wilk test
+shapiro.test(x = aov_residualsN2)
+```
+```{r}
+plot(my_anovaN2, 2)
+```
+
+____________________________________________________________________________________________________
+## 7. Non-parametric independent samples tests
+
+Preparing data for non-parametric independent samples t-test
+```{r}
+posANOVAdf_long_angryOnly <- posANOVAdf_long %>%
+  filter(Expression == "angry_trial")
+
+posANOVAdf_long_fearfulOnly <- posANOVAdf_long %>%
+  filter(Expression == "fearful_trial")
+
+posANOVAdf_long_happyOnly <- posANOVAdf_long %>%
+  filter(Expression == "happy_trial")
+
+posANOVAdf_long_neutralOnly <- posANOVAdf_long %>%
+  filter(Expression == "neutral_trial")
+
+```
+
+
+Histogram for each expression (Intensity X Count, crawling = color)
+```{r}
+ggplot(posANOVAdf_long_angryOnly, aes(x = Intensity, fill = crawlingYN)) +
+  geom_histogram()
+
+ggplot(posANOVAdf_long_happyOnly, aes(x = Intensity, fill = crawlingYN)) +
+  geom_histogram()
+
+ggplot(posANOVAdf_long_neutralOnly, aes(x = Intensity, fill = crawlingYN)) +
+  geom_histogram()
+
+ggplot(posANOVAdf_long_fearfulOnly, aes(x = Intensity, fill = crawlingYN)) +
+  geom_histogram()
+
+```
+
+Summary stats- POS/HAPPY
+```{r}
+group_by(posANOVAdf_long_happyOnly, crawlingYN) %>%
+  summarise(
+    count = n(),
+    median = median(Intensity, na.rm = TRUE),
+    mean = mean(Intensity, na.rm = TRUE),
+    IQR = IQR(Intensity, na.rm = TRUE)
+  )
+```
+
+Boxplots
+```{r}
+ggplot(data = posANOVAdf_long_happyOnly, aes(x = Expression, y = Intensity, color = crawlingYN)) +
+  geom_boxplot()
+```
+
+```{r}
+res_poshappy <- wilcox.test(Intensity ~ crawlingYN, data = posANOVAdf_long_happyOnly, exact = FALSE)
+res_poshappy
+```
+
+
+

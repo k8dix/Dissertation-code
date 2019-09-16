@@ -1,0 +1,352 @@
+---
+title: "Averaging intensity by time point- Positive AU"
+output: html_notebook
+---
+
+
+1. Average intensity for mean positive AU per test trial per time bin (all participants)
+
+__________________________________________________________________________________________
+Clear environment
+```{r}
+remove(list = ls())
+```
+
+Set working directory
+```{r}
+setwd("~/MATLAB")
+```
+
+Load packages
+```{r load-packages, message = FALSE}
+library(tidyverse)
+library(readxl)
+library(jtools)
+```
+
+Load data
+```{r}
+angry_trials <- read_excel("MASTER Affectiva angry trial pos AU.xlsx")
+fear_trials <- read_excel("MASTER Affectiva fearful trial pos AU.xlsx")
+neutral_trials <- read_excel("MASTER Affectiva neutral trial pos AU.xlsx")
+happy_trials <- read_excel("MASTER Affectiva happy trial pos AU.xlsx")
+```
+
+____________________________________________________________________________________
+## 1. Average intensity for each positive AU per test trial (angry, fearful, neutral, happy) per time point (all participants)
+
+Angry, Fearful, Happy, Neutral (all participants)
+Averaging each AU at each time point per trial
+```{r}
+angry_trials <- round(angry_trials, 3)
+fear_trials <- round(fear_trials, 3)
+happy_trials <- round(happy_trials, 3)
+neutral_trials <- round(neutral_trials, 3)
+
+
+angry_trials <- angry_trials %>%
+      dplyr::group_by(Standardized_time) %>%
+      dplyr::summarise(meanCR = mean(cheek_raise))
+
+fear_trials <- fear_trials %>%
+      dplyr::group_by(Standardized_time) %>%
+      dplyr::summarise(meanCR = mean(cheek_raise))
+
+happy_trials <- happy_trials %>%
+      dplyr::group_by(Standardized_time) %>%
+      dplyr::summarise(meanCR = mean(cheek_raise))
+
+neutral_trials <- neutral_trials %>%
+      dplyr::group_by(Standardized_time) %>%
+      dplyr::summarise(meanCR = mean(cheek_raise))
+```
+
+__________________________________________________________________________________________
+## 2. Average intensity for grand mean AU per test trial per time bin (all participants) - CSV file output for SPSS and plot
+
+Adding a column for trial ("Angry", "Fear", etc.) and a column for bin (bin 1 = 0 - 10 seconds, bin 2 = 10.001 - 20 seconds)
+```{r}
+
+angry_trials$Trial <- "angry"
+fear_trials$Trial <- "fear"
+happy_trials$Trial <- "happy"
+neutral_trials$Trial <- "neutral"
+      
+#Angry
+angry_trials$Bin[angry_trials$Standardized_time < 10.001] <- 1
+angry_trials$Bin[angry_trials$Standardized_time >= 10.001] <- 2
+
+angry_trials$grandMean <- angry_trials$meanCR
+
+angry_trialsS <- angry_trials %>%
+      select(Standardized_time, Trial, Bin, grandMean)
+
+#Fear 
+fear_trials$Bin[fear_trials$Standardized_time < 10.001] <- 1
+fear_trials$Bin[fear_trials$Standardized_time >= 10.001] <- 2
+
+fear_trials$grandMean <- fear_trials$meanCR
+
+fear_trialsS <- fear_trials %>%
+      select(Standardized_time, Trial, Bin, grandMean)
+
+#Happy
+happy_trials$Bin[happy_trials$Standardized_time < 10.001] <- 1
+happy_trials$Bin[happy_trials$Standardized_time >= 10.001] <- 2
+
+happy_trials$grandMean <- happy_trials$meanCR
+
+happy_trialsS <- happy_trials %>%
+      select(Standardized_time, Trial, Bin, grandMean)
+
+#Neutral
+neutral_trials$Bin[neutral_trials$Standardized_time < 10.001] <- 1
+neutral_trials$Bin[neutral_trials$Standardized_time >= 10.001] <- 2
+
+neutral_trials$grandMean <- neutral_trials$meanCR
+
+neutral_trialsS <- neutral_trials %>%
+      select(Standardized_time, Trial, Bin, grandMean)
+
+#Put all trials in 1 df
+avgGrandMean_perTimePoint_perTrialS_pos <- rbind(angry_trialsS, neutral_trialsS, fear_trialsS, happy_trialsS)
+
+#Wide format
+avgGrandMean_perTimePoint_perTrialSW_pos <- avgGrandMean_perTimePoint_perTrialS_pos %>%
+      spread(Trial, grandMean)
+
+
+##write csv
+write.csv(avgGrandMean_perTimePoint_perTrialSW_pos, file = "avgGrandMeans_POS.csv")
+```
+
+
+```{r}
+ggplot(data = avgGrandMean_perTimePoint_perTrialS_pos, aes(x = Standardized_time, y = grandMean, color = Trial)) +
+      geom_line()
+```
+
+## average per 5 seconds - for data reduction purposes
+
+
+```{r}
+avgGrandMean_perTimePoint_perTrialS_pos$FiveSecIncrmts[avgGrandMean_perTimePoint_perTrialS_pos$Standardized_time < 5.001] <- 1
+
+avgGrandMean_perTimePoint_perTrialS_pos$FiveSecIncrmts[(avgGrandMean_perTimePoint_perTrialS_pos$Standardized_time >= 5.001) & (avgGrandMean_perTimePoint_perTrialS_pos$Standardized_time < 10.001)] <- 2
+
+avgGrandMean_perTimePoint_perTrialS_pos$FiveSecIncrmts[(avgGrandMean_perTimePoint_perTrialS_pos$Standardized_time >= 10.001) & (avgGrandMean_perTimePoint_perTrialS_pos$Standardized_time < 15.001)] <- 3
+
+avgGrandMean_perTimePoint_perTrialS_pos$FiveSecIncrmts[avgGrandMean_perTimePoint_perTrialS_pos$Standardized_time >= 15.001] <- 4
+
+avgGrandMean_perTimePoint_perTrialSW_5sec_pos <- avgGrandMean_perTimePoint_perTrialS_pos %>%
+      spread(Trial, grandMean)
+
+
+##write csv
+write.csv(avgGrandMean_perTimePoint_perTrialSW_5sec_pos, file = "avgGrandMeans_5sec_POS.csv")
+
+```
+
+## need to make graph for 5 sec one
+
+```{r}
+
+averageGrandMean_perTimePoint_perTrialS_4graph_pos <- avgGrandMean_perTimePoint_perTrialS_pos %>%
+      dplyr::group_by(FiveSecIncrmts, Trial) %>%
+      dplyr::summarise(meanGrandMean = mean(grandMean))
+
+
+ggplot(data = averageGrandMean_perTimePoint_perTrialS_4graph_pos, aes(x = FiveSecIncrmts, y = meanGrandMean, color = Trial)) +
+      geom_point() +
+      geom_line() +
+      xlab("Time Bin") +
+  ylab("Grand Mean Intensity") +
+  theme_apa(legend.pos = "right", legend.use.title = FALSE,
+  legend.font.size = 10, x.font.size = 12, y.font.size = 12,
+  facet.title.size = 10, remove.y.gridlines = TRUE,
+  remove.x.gridlines = TRUE) +
+  theme(legend.key.size = unit(0.5, "cm"),
+  legend.key.width = unit(0.5,"cm"))
+```
+
+
+
+
+
+
+
+
+
+Average of each AU per trial for bin 1 and bin 2
+```{r}
+angry_trials1 <- angry_trials %>%
+      filter(Bin == 1) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+      
+angry_trials2 <- angry_trials %>%
+      filter(Bin == 2) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+
+fear_trials1 <- fear_trials %>%
+      filter(Bin == 1) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+      
+fear_trials2 <- fear_trials %>%
+      filter(Bin == 2) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+
+happy_trials1 <- happy_trials %>%
+      filter(Bin == 1) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+      
+happy_trials2 <- happy_trials %>%
+      filter(Bin == 2) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+
+neutral_trials1 <- neutral_trials %>%
+      filter(Bin == 1) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+      
+neutral_trials2 <- neutral_trials %>%
+      filter(Bin == 2) %>%
+      summarise(meanIBR_bin = mean(meanIBR),
+                meanBR_bin = mean(meanBR), 
+                meanBF_bin = mean(meanBF), 
+                meanNW_bin = mean(meanNW),
+                meanULR_bin = mean(meanULR),
+                meanLCD_bin = mean(meanLCD),
+                meanCR_bin = mean(meanCR),
+                meanLS_bin = mean(meanLS), 
+                meanLP_bin = mean(meanLP)
+                )
+
+```
+
+Putting the averages of both bins into one dataframe
+```{r}
+average_angry_per_bin <- rbind(angry_trials1, angry_trials2)
+average_angry_per_bin$Trial <- "angry"
+average_angry_per_bin$Bin <- c(1,2)
+
+
+average_fear_per_bin <- rbind(fear_trials1, fear_trials2)
+average_fear_per_bin$Trial <- "fear"
+average_fear_per_bin$Bin <- c(1,2)
+
+
+average_happy_per_bin <- rbind(happy_trials1, happy_trials2)
+average_happy_per_bin$Trial <- "happy"
+average_happy_per_bin$Bin <- c(1,2)
+
+average_neutral_per_bin <- rbind(neutral_trials1, neutral_trials2)
+average_neutral_per_bin$Trial <- "neutral"
+average_neutral_per_bin$Bin <- c(1,2)
+
+
+average_all_per_bin <- rbind(average_angry_per_bin, average_neutral_per_bin, average_happy_per_bin, average_fear_per_bin)
+```
+
+
+Reshaping data (long)
+```{r}
+average_all_per_bin_long <- average_all_per_bin %>%
+      gather(AU, avg_Intensity, meanIBR_bin:meanLP_bin)
+
+```
+
+
+```{r}
+ggplot(data = average_all_per_bin_long, aes(x = factor(Bin), y = avg_Intensity, color = AU)) +
+      geom_point() +
+      facet_grid(cols = vars(Trial)) +
+      ggtitle("Average intensity for negative AUs by time bin")
+
+```
+
+_________________________________________________________________________________________
+
+## 3. Grand negative AU means per test trial
+
+
+```{r}
+grand_negAU_means <- average_all_per_bin %>%
+      group_by(Trial,Bin) %>%
+      summarise(grandMean = mean(meanIBR_bin:meanLP_bin))
+
+
+ggplot(data = grand_negAU_means, aes(x = factor(Bin), y = grandMean, color = Trial)) +
+      geom_point() 
+
+```
+
+
+
+
+
+
+
+
+

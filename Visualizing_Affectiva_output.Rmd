@@ -1,0 +1,131 @@
+---
+title: "Visualizing Affectiva output by trial"
+output: html_notebook
+---
+
+Change participant # - 12 places
+Change cell # - 1 place
+Change crawling to 0 or 1 - 4 places
+
+Clear environment
+```{r}
+remove(list = ls())
+```
+
+Set working directory
+```{r}
+setwd("C:/Users/Kate/Documents/MATLAB")
+```
+
+Load packages
+```{r load-packages, message = FALSE}
+library(tidyverse)
+library(readxl)
+```
+
+Load data- *CHANGE NAME OF FILE HERE- processed ML file has to be saved as just a workbook or it won't work*
+```{r load-data}
+Trial_1 <- read_excel("239847_processedML.xlsx", sheet = "Sheet5")
+Trial_2 <- read_excel("239847_processedML.xlsx", sheet = "Sheet6")
+Trial_3 <- read_excel("239847_processedML.xlsx", sheet = "Sheet7")
+Trial_4 <- read_excel("239847_processedML.xlsx", sheet = "Sheet8")
+
+ARcell_orders <- read_excel("AR cell orders.xlsx")
+```
+
+Renaming trials to H, A, N, F *CHANGE CELL NUMBER HERE*
+```{r}
+order <- ARcell_orders$`Cell 10`
+
+assign(order[1], Trial_1)
+assign(order[2], Trial_2)
+assign(order[3], Trial_3)
+assign(order[4], Trial_4)
+```
+
+Grabbing only negative AUs and one timing variable (seconds)
+```{r}
+H_negAUs <- H %>%
+      select(original_fileTimes, inner_brow_raise, brow_raise, brow_furrow, nose_wrinkle, upper_lip_raise, lip_corner_depressor, chin_raise, lip_stretch, lip_press)
+      
+F_negAUs <- F %>%
+      select(original_fileTimes, inner_brow_raise, brow_raise, brow_furrow, nose_wrinkle, upper_lip_raise, lip_corner_depressor, chin_raise, lip_stretch, lip_press)
+
+A_negAUs <- A %>%
+      select(original_fileTimes, inner_brow_raise, brow_raise, brow_furrow, nose_wrinkle, upper_lip_raise, lip_corner_depressor, chin_raise, lip_stretch, lip_press)
+
+N_negAUs <- N %>%
+      select(original_fileTimes, inner_brow_raise, brow_raise, brow_furrow, nose_wrinkle, upper_lip_raise, lip_corner_depressor, chin_raise, lip_stretch, lip_press)
+```
+
+Adding standardized time variable
+```{r}
+H_negAUs$Standardized_time <- (H_negAUs$original_fileTimes - (H_negAUs$original_fileTimes[1]))
+
+F_negAUs$Standardized_time <- (F_negAUs$original_fileTimes - (F_negAUs$original_fileTimes[1]))
+
+A_negAUs$Standardized_time <- (A_negAUs$original_fileTimes - (A_negAUs$original_fileTimes[1]))
+
+N_negAUs$Standardized_time <- (N_negAUs$original_fileTimes - (N_negAUs$original_fileTimes[1]))
+```
+
+
+Reshaping data
+```{r}
+H_negAUs_long <- H_negAUs %>%
+      gather(AU, Intensity, inner_brow_raise:lip_press)
+F_negAUs_long <- F_negAUs %>%
+      gather(AU, Intensity, inner_brow_raise:lip_press)
+A_negAUs_long <- A_negAUs %>%
+      gather(AU, Intensity, inner_brow_raise:lip_press)
+N_negAUs_long <- N_negAUs %>%
+      gather(AU, Intensity, inner_brow_raise:lip_press)
+```
+
+
+Visualizing Trial H
+```{r}
+ggplot(data = H_negAUs_long, aes(x = Standardized_time, y = Intensity, color = AU)) +
+      geom_point()
+```
+
+Visualizing Trial F
+```{r}
+ggplot(data = F_negAUs_long, aes(x = Standardized_time, y = Intensity, color = AU)) +
+      geom_point()
+```
+
+Visualizing Trial A
+```{r}
+ggplot(data = A_negAUs_long, aes(x = Standardized_time, y = Intensity, color = AU)) +
+      geom_point()
+```
+
+Visualizing Trial N
+```{r}
+ggplot(data = N_negAUs_long, aes(x = Standardized_time, y = Intensity, color = AU)) +
+      geom_point()
+```
+*CHANGE PART # HERE* and *CHANGE CRAWLING OR NC*
+```{r}
+N_negAUs$participant <- 239847
+N_negAUs$crawlingYN <- 0
+
+H_negAUs$participant <- 239847
+H_negAUs$crawlingYN <- 0
+
+A_negAUs$participant <- 239847
+A_negAUs$crawlingYN <- 0
+
+F_negAUs$participant <- 239847
+F_negAUs$crawlingYN <- 0
+
+```
+
+Write to CSV (4 files, one for each trial) *CHANGE PART # HERE*
+```{r}
+write.csv(N_negAUs, file = "239847 neutral negAUs.csv")
+write.csv(H_negAUs, file = "239847 happy negAUs.csv")
+write.csv(A_negAUs, file = "239847 angry negAUs.csv")
+write.csv(F_negAUs, file = "239847 fearful negAUs.csv")
+```
